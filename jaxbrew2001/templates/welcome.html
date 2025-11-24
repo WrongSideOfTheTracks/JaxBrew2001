@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>JaxBrew 2001 – Brewery Control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+</head>
+<body class="bg-light">
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">JaxBrew 2001</a>
+
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+              data-bs-target="#mainNavbar" aria-controls="mainNavbar"
+              aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="mainNavbar">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="/">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/dashboard">Dashboard</a>
+          </li>
+        </ul>
+        <ul class="navbar-nav mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link" href="#">Login</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main welcome section -->
+  <main class="container py-5">
+    <div class="row align-items-center">
+      <div class="col-md-7 mb-4 mb-md-0">
+        <h1 class="display-4 fw-bold mb-3">
+          Welcome to JaxBrew 2001
+        </h1>
+        <p class="lead mb-4">
+          Central control for your 100&nbsp;L garage brewery – hot liquor tank,
+          mash tun, kettle, fermenters and pumps, all monitored from one place.
+        </p>
+        <p class="mb-4">
+          As the system grows, this app will connect your Raspberry&nbsp;Pi,
+          ESP temperature nodes and cloud database so you can track every stage
+          of brewing from the garage or from anywhere in the world.
+        </p>
+        <div class="d-flex flex-wrap gap-2">
+          <a href="/dashboard" class="btn btn-primary btn-lg">
+            Go to Dashboard
+          </a>
+          <a href="#" class="btn btn-outline-secondary btn-lg">
+            View Documentation
+          </a>
+        </div>
+      </div>
+
+      <div class="col-md-5">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title mb-3">System Status</h5>
+            <ul class="list-unstyled mb-0">
+              <li class="mb-2">
+                <span class="fw-semibold">Garage Brew Hub (Pi):</span>
+                <span class="text-muted">Not connected</span>
+              </li>
+              <li class="mb-2">
+                <span class="fw-semibold">Hot Side Controller:</span>
+                <span class="text-muted">Not connected</span>
+              </li>
+              <li class="mb-2">
+                <span class="fw-semibold">Fermentation Controller:</span>
+                <span class="text-muted">Not connected</span>
+              </li>
+              <li>
+                <span class="fw-semibold">Cloud Sync:</span>
+                <span class="text-muted">Not configured</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-top py-3 mt-5">
+    <div class="container text-center text-muted small">
+      &copy; <span id="year"></span> JaxBrew 2001
+    </div>
+  </footer>
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
+  </script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

@@ -510,3 +510,28 @@ async def api_set_tolerance(vessel_id: str, body: ToleranceUpdate):
     v["last_update"] = datetime.now()
     return {"ok": True, "toleranceC": body.toleranceC}
 
+from datetime import datetime  # you probably already have this at the top
+
+# ... rest of your imports & code ...
+
+
+@app.get("/test-email")
+async def test_email():
+    """
+    Simple endpoint to verify SMTP/Zoho settings.
+    Calls send_email_alert but always returns HTTP 200.
+    """
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    subject = "JaxBrew test email"
+    body = (
+        "This is a test email from JaxBrew 2001 on your server.\n\n"
+        f"Time (server): {now}\n"
+        "If you see this, SMTP is working."
+    )
+
+    # This uses the helper you already added earlier
+    send_email_alert(subject, body)
+
+    return {"ok": True, "sent_to": ALERT_EMAIL_TO, "server_time": now}
+

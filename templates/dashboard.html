@@ -62,7 +62,7 @@
       <div class="row" id="vessel-row">
         {% for v in vessels %}
         <div class="col-md-4 mb-3">
-          <div class="card h-100" data-vessel-id="{{ v.id }}">
+          <div class="card h-100 border" data-vessel-id="{{ v.id }}">
             <div class="card-body">
               <h5 class="card-title mb-1">{{ v.name }}</h5>
               <p class="text-muted mb-2">
@@ -136,62 +136,95 @@
       &copy; <span id="year"></span> JaxBrew 2001
     </div>
   </footer>
+<script
+  src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
+</script>
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
-  </script>
-  <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
+  async function refreshVessels() {
+    try {
+      const res = await fetch('/api/vessels');
+      if (!res.ok) return;
+      const data = await res.json();  // list of vessels
 
-    async function refreshVessels() {
-      try {
-        const res = await fetch('/api/vessels');
-        if (!res.ok) return;
-        const data = await res.json();  // list of vessels
+      data.forEach(v => {
+        const card = document.querySelector('[data-vessel-id="' + v.id + '"]');
+        if (!card) return;
 
-        data.forEach(v => {
-          const card = document.querySelector('[data-vessel-id="' + v.id + '"]');
-          if (!card) return;
+        const curSpan  = card.querySelector('[data-role="current-temp"]');
+        const tgtSpan  = card.querySelector('[data-role="target-temp"]');
+        const lastSpan = card.querySelector('[data-role="last-update"]');
 
-          const curSpan = card.querySelector('[data-role="current-temp"]');
-          const tgtSpan = card.querySelector('[data-role="target-temp"]');
-          const lastSpan = card.querySelector('[data-role="last-update"]');
-
-          if (curSpan && v.current_temp !== undefined) {
-            curSpan.textContent = v.current_temp.toFixed(1);
+        if (curSpan && v.current_temp !== undefined) {
+          curSpan.textContent = v.current_temp.toFixed(1);
+        }
+        if (tgtSpan && v.target_temp !== undefined) {
+          tgtSpan.textContent = v.target_temp.toFixed(1);
+        }
+        if (lastSpan && v.last_update) {
+          const dt = new Date(v.last_update);
+          if (!isNaN(dt)) {
+            const pad = n => n.toString().padStart(2, '0');
+            const formatted =
+              dt.getFullYear() + '-' +
+              pad(dt.getMonth() + 1) + '-' +
+              pad(dt.getDate()) + ' ' +
+              pad(dt.getHours()) + ':' +
+              pad(dt.getMinutes()) + ':' +
+              pad(dt.getSeconds());
+            lastSpan.textContent = 'Last update: ' + formatted;
           }
-          if (tgtSpan && v.target_temp !== undefined) {
-            tgtSpan.textContent = v.target_temp.toFixed(1);
+        }
+
+        // ---- NEW: colour tile based on tolerance ----
+        if (v.current_temp !== undefined &&
+            v.target_temp !== undefined &&
+            v.tolerance_c !== undefined) {
+
+          const diff = v.current_temp - v.target_temp;
+          let state = 'within';
+
+          if (Math.abs(diff) > v.tolerance_c) {
+            state = diff < 0 ? 'under' : 'over';
           }
-          if (lastSpan && v.last_update) {
-            const dt = new Date(v.last_update);
-            if (!isNaN(dt)) {
-              const pad = n => n.toString().padStart(2, '0');
-              const formatted =
-                dt.getFullYear() + '-' +
-                pad(dt.getMonth() + 1) + '-' +
-                pad(dt.getDate()) + ' ' +
-                pad(dt.getHours()) + ':' +
-                pad(dt.getMinutes()) + ':' +
-                pad(dt.getSeconds());
-              lastSpan.textContent = 'Last update: ' + formatted;
-            }
+
+          // Clear any previous state classes
+          card.classList.remove(
+            'bg-info-subtle', 'bg-success-subtle', 'bg-danger-subtle',
+            'border-info', 'border-success', 'border-danger'
+          );
+
+          // Apply new state
+          if (state === 'within') {
+            // light green
+            card.classList.add('bg-success-subtle', 'border-success');
+          } else if (state === 'under') {
+            // light blue
+            card.classList.add('bg-info-subtle', 'border-info');
+          } else if (state === 'over') {
+            // light red
+            card.classList.add('bg-danger-subtle', 'border-danger');
           }
-        });
-      } catch (err) {
-        console.error('Error refreshing vessels', err);
-      }
+        }
+        // --------------------------------------------
+      });
+    } catch (err) {
+      console.error('Error refreshing vessels', err);
     }
+  }
 
-    // Manual refresh button
-    document.getElementById('refresh-btn')
-      .addEventListener('click', refreshVessels);
+  // Manual refresh button
+  document.getElementById('refresh-btn')
+          .addEventListener('click', refreshVessels);
 
-    // Auto refresh every 5 seconds
-    setInterval(refreshVessels, 5000);
+  // Auto refresh every 5 seconds
+  setInterval(refreshVessels, 5000);
 
-    // Initial refresh
-    refreshVessels();
-  </script>
+  // Initial refresh
+  refreshVessels();
+</script>
+
 
 </body>
 

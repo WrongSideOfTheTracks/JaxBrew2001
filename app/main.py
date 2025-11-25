@@ -162,6 +162,85 @@ def simulate_temps():
 
         v["current_temp"] = round(new_temp, 2)
         v["last_update"] = now
+# -------- Suppliers & Inventory --------
+
+SUPPLIERS = [
+    {
+        "id": new_guid(),
+        "name": "BrewShop UK",
+        "website": "https://example-brewshop.co.uk",
+    },
+    {
+        "id": new_guid(),
+        "name": "Yeast & Hops Ltd",
+        "website": "https://example-yeastandhops.com",
+    },
+]
+
+def get_supplier(supplier_id: str):
+    for s in SUPPLIERS:
+        if s["id"] == supplier_id:
+            return s
+    return None
+
+
+INVENTORY = [
+    {
+        "id": new_guid(),
+        "code": "MALT-MO-25KG",
+        "name": "Maris Otter Pale Malt 25kg",
+        "category": "malt",
+        "unit": "kg",
+        "preferred_supplier_id": SUPPLIERS[0]["id"],
+        "supplier_product_code": "MO-25",
+        "current_stock": 50.0,   # kg
+        "reorder_level": 25.0,   # kg
+    },
+    {
+        "id": new_guid(),
+        "code": "HOP-CITRA-100G",
+        "name": "Citra 13% AA 100g",
+        "category": "hop",
+        "unit": "g",
+        "preferred_supplier_id": SUPPLIERS[1]["id"],
+        "supplier_product_code": "CIT-100",
+        "current_stock": 400.0,  # g
+        "reorder_level": 200.0,  # g
+    },
+    {
+        "id": new_guid(),
+        "code": "YEAST-US05",
+        "name": "Safale US-05",
+        "category": "yeast",
+        "unit": "packet",
+        "preferred_supplier_id": SUPPLIERS[1]["id"],
+        "supplier_product_code": "US-05",
+        "current_stock": 10.0,   # packets
+        "reorder_level": 5.0,
+    },
+    {
+        "id": new_guid(),
+        "code": "CLEAN-STARSAN-1L",
+        "name": "Starsan 1L",
+        "category": "cleaning",
+        "unit": "L",
+        "preferred_supplier_id": SUPPLIERS[0]["id"],
+        "supplier_product_code": "STAR-1L",
+        "current_stock": 1.5,    # L
+        "reorder_level": 0.5,
+    },
+    {
+        "id": new_guid(),
+        "code": "WATER-CAMPDEN",
+        "name": "Campden Tablets (50)",
+        "category": "water_treatment",
+        "unit": "tablet",
+        "preferred_supplier_id": SUPPLIERS[0]["id"],
+        "supplier_product_code": "CAMP-50",
+        "current_stock": 40.0,   # tablets
+        "reorder_level": 10.0,
+    },
+]
 
 
 # -------- Pydantic models for API --------
@@ -173,7 +252,18 @@ class Telemetry(BaseModel):
 
 class Setpoint(BaseModel):
     targetTemp: float
-# -----------------------------------------
+
+class InventoryItem(BaseModel):
+    id: str
+    code: str
+    name: str
+    category: str
+    unit: str
+    preferred_supplier_id: str
+    supplier_product_code: str
+    current_stock: float
+    reorder_level: float
+
 
 
 # -------- Routes: pages --------
@@ -200,7 +290,29 @@ async def vessel_detail(code: str, request: Request):
         "vessel_detail.html",
         {"request": request, "vessel": vessel},
     )
-# --------------------------------
+
+
+@app.get("/inventory", response_class=HTMLResponse)
+async def inventory_page(request: Request):
+    # Annotate products with supplier names for display convenience
+    products_for_view = []
+    for p in INVENTORY:
+        supplier = get_supplier(p["preferred_supplier_id"])
+        products_for_view.append(
+            {
+                **p,
+                "preferred_supplier_name": supplier["name"] if supplier else "Unknown",
+            }
+        )
+
+    return templates.TemplateResponse(
+        "inventory.html",
+        {
+            "request": request,
+            "products": products_for_view,
+        },
+    )
+
 
 
 # -------- JSON API: live data --------

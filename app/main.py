@@ -1,3 +1,12 @@
+import os
+import smtplib
+from email.message import EmailMessage
+
+try:
+    from twilio.rest import Client as TwilioClient  # optional
+except ImportError:
+    TwilioClient = None
+
 from datetime import datetime
 import random
 import uuid
@@ -18,6 +27,58 @@ templates = Jinja2Templates(directory="templates")
 
 # -------- CONFIG --------
 DUMMY_MODE = True  # set False later when ESP telemetry is live
+# --- ALERT CONFIG (from environment) ---
+SMTP_HOST = os.getenv("JAXBREW_SMTP_HOST")
+SMTP_PORT = int(os.getenv("JAXBREW_SMTP_PORT", "587"))
+SMTP_USER = os.getenv("JAXBREW_SMTP_USER")
+SMTP_PASS = os.getenv("JAXBREW_SMTP_PASS")
+
+ALERT_EMAIL_FROM = os.getenv("JAXBREW_ALERT_EMAIL_FROM")
+ALERT_EMAIL_TO = os.getenv("JAXBREW_ALERT_EMAIL_TO")
+
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_WHATSAPP_FROM = os.getenv("TWILIO_WHATSAPP_FROM")
+WHATSAPP_TO = os.getenv("JAXBREW_WHATSAPP_TO")
+# --------------------------------------
+def send_email_alert(subject: str, body: str):
+    """Send a simple email alert if email settings are configured."""
+    if not (SMTP_HOST and ALERT_EMAIL_FROM and ALERT_EMAIL_TO):
+        return  # email not configured, silently skip
+
+    msg = EmailMessage()
+    msg["From"] = ALERT_EMAIL_FROM
+    msg["To"] = ALERT_EMAIL_TO
+    msg["Subject"] = subject
+    msg.set_content(body)
+
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.starttls()
+            if SMTP_USER and SMTP_PASS:
+                server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+    except Exception as e:
+        # In real life you might log this; for now we just print
+        print("Error sending email alert:", e)
+
+
+def send_whatsapp_alert(message: str):
+    """Send a WhatsApp alert via Twilio if configured."""
+    if not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and
+            TWILIO_WHATSAPP_FROM and WHATSAPP_TO and TwilioClient):
+        return  # WhatsApp not configured
+
+    try:
+        client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        client.messages.create(
+            body=message,
+            from_=TWILIO_WHATSAPP_FROM,
+            to=WHATSAPP_TO,
+        )
+    except Exception as e:
+        print("Error sending WhatsApp alert:", e)
+
 # ------------------------
 
 
@@ -196,6 +257,46 @@ SUPPLIERS = [
     },
 ]
 
+def check_alerts_for_vessel(v: dict):
+    """
+    Check if a vessel has moved into or out of tolerance
+    and send alerts on state changes.
+    """
+    vs = vessel_with_status(v)
+    current = vs["current_temp"]
+    target = vs["target_temp"]
+    tol = vs["tolerance_c"]
+    in_tol = vs["in_tolerance"]
+
+    # track last state on the vessel dict itself
+    prev = v.get("last_in_tolerance")
+    v["last_in_tolerance"] = in_tol
+
+    # On first run, don't alert (no previous state to compare)
+    if prev is None:
+        return
+
+    vessel_name = v.get("name", v.get("code", "Unknown vessel"))
+    detail = (
+        f"{vessel_name}: current {current:.1f}°C, "
+        f"target {target:.1f}°C ± {tol:.1f}°C"
+    )
+
+    # Went from OK -> out of tolerance
+    if prev is True and not in_tol:
+        subject = f"JaxBrew ALERT: {vessel_name} out of tolerance"
+        body = "Vessel has gone OUT of tolerance.\n\n" + detail
+        send_email_alert(subject, body)
+        send_whatsapp_alert(subject + " – " + detail)
+
+    # Went from out -> back within tolerance (optional)
+    elif prev is False and in_tol:
+        subject = f"JaxBrew INFO: {vessel_name} back within tolerance"
+        body = "Vessel is back WITHIN tolerance.\n\n" + detail
+        send_email_alert(subject, body)
+        send_whatsapp_alert(subject + " – " + detail)
+
+
 def get_supplier(supplier_id: str):
     for s in SUPPLIERS:
         if s["id"] == supplier_id:
@@ -365,13 +466,21 @@ async def api_telemetry(data: Telemetry):
     if v is None:
         raise HTTPException(status_code=404, detail="Unknown vessel")
 
+    # Basic sanity
     if data.temperature < -10 or data.temperature > 120:
         raise HTTPException(status_code=400, detail="Temperature out of range")
 
     v["current_temp"] = data.temperature
     v["last_update"] = datetime.now()
     v.setdefault("target_temp", data.temperature)
+    v.setdefault("tolerance_c", 0.0)          # ensure key exists
+    v.setdefault("last_in_tolerance", None)   # start state
+
+    # Check alerts (only if you want alerts during dummy mode)
+    check_alerts_for_vessel(v)
+
     return {"ok": True}
+
 
 
 @app.post("/api/vessels/{vessel_id}/setpoint")

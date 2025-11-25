@@ -38,6 +38,7 @@ VESSELS = [
         "notes": "Electric – main strike & sparge water.",
         "current_temp": 20.0,
         "target_temp": 65.0,
+        "tolerance_c": 2.0,
         "last_update": datetime.now(),
     },
     {
@@ -50,6 +51,7 @@ VESSELS = [
         "notes": "Mash and recirculation.",
         "current_temp": 20.0,
         "target_temp": 66.0,
+        "tolerance_c": 2.0,
         "last_update": datetime.now(),
     },
     {
@@ -62,6 +64,7 @@ VESSELS = [
         "notes": "Gas fired – manually controlled boil.",
         "current_temp": 20.0,
         "target_temp": 100.0,
+        "tolerance_c": 2.0,
         "last_update": datetime.now(),
     },
     {
@@ -74,6 +77,7 @@ VESSELS = [
         "notes": "Primary fermentation.",
         "current_temp": 18.5,
         "target_temp": 19.0,
+        "tolerance_c": 2.0,
         "last_update": datetime.now(),
     },
     {
@@ -86,6 +90,7 @@ VESSELS = [
         "notes": "Primary fermentation.",
         "current_temp": 18.0,
         "target_temp": 19.0,
+        "tolerance_c": 2.0,
         "last_update": datetime.now(),
     },
     {
@@ -98,6 +103,7 @@ VESSELS = [
         "notes": "Primary fermentation.",
         "current_temp": 17.5,
         "target_temp": 19.0,
+        "tolerance_c": 2.0,          
         "last_update": datetime.now(),
     },
 ]
@@ -163,6 +169,19 @@ def simulate_temps():
         v["current_temp"] = round(new_temp, 2)
         v["last_update"] = now
 # -------- Suppliers & Inventory --------
+
+def vessel_with_status(v: dict) -> dict:
+    """Return a copy of the vessel dict with in_tolerance flag added."""
+    current = v.get("current_temp")
+    target = v.get("target_temp")
+    tol = v.get("tolerance_c")
+
+    in_tolerance = False
+    if current is not None and target is not None and tol is not None:
+        diff = abs(current - target)
+        in_tolerance = diff <= tol   # e.g. target 65, tol 5: 61 in, 58 out
+
+    return {**v, "in_tolerance": in_tolerance}
 
 SUPPLIERS = [
     {
@@ -264,6 +283,8 @@ class InventoryItem(BaseModel):
     current_stock: float
     reorder_level: float
 
+class ToleranceUpdate(BaseModel):
+    toleranceC: float
 
 
 # -------- Routes: pages --------
@@ -286,10 +307,16 @@ async def vessel_detail(code: str, request: Request):
     if vessel is None:
         raise HTTPException(status_code=404, detail="Vessel not found")
 
+    vessel_view = vessel_with_status(vessel)
+
     return templates.TemplateResponse(
         "vessel_detail.html",
-        {"request": request, "vessel": vessel},
+        {
+            "request": request,
+            "vessel": vessel_view,
+        },
     )
+
 
 
 @app.get("/inventory", response_class=HTMLResponse)
@@ -319,7 +346,7 @@ async def inventory_page(request: Request):
 @app.get("/api/vessels")
 async def api_get_vessels():
     simulate_temps()
-    return VESSELS
+    return [vessel_with_status(v) for v in VESSELS]
 
 
 @app.get("/api/vessels/{vessel_id}")
@@ -328,7 +355,8 @@ async def api_get_vessel(vessel_id: str):
     v = get_vessel(vessel_id)
     if v is None:
         raise HTTPException(status_code=404, detail="Unknown vessel")
-    return v
+    return vessel_with_status(v)
+
 
 
 @app.post("/api/telemetry")
@@ -359,3 +387,17 @@ async def api_set_setpoint(vessel_id: str, sp: Setpoint):
     v["last_update"] = datetime.now()
     return {"ok": True, "targetTemp": sp.targetTemp}
 # --------------------------------------
+
+@app.post("/api/vessels/{vessel_id}/tolerance")
+async def api_set_tolerance(vessel_id: str, body: ToleranceUpdate):
+    v = get_vessel(vessel_id)
+    if v is None:
+        raise HTTPException(status_code=404, detail="Unknown vessel")
+
+    if body.toleranceC < 0 or body.toleranceC > 50:
+        raise HTTPException(status_code=400, detail="Tolerance out of range")
+
+    v["tolerance_c"] = body.toleranceC
+    v["last_update"] = datetime.now()
+    return {"ok": True, "toleranceC": body.toleranceC}
+

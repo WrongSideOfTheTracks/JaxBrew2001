@@ -51,7 +51,7 @@
     </div>
 
     <div class="row g-3 mb-4">
-      <!-- Live status + setpoint -->
+      <!-- Live status + controls -->
       <div class="col-md-6">
         <div class="card h-100">
           <div class="card-body">
@@ -64,6 +64,17 @@
               <span class="fw-semibold">Target temperature:</span>
               <span id="target-temp">{{ '%.1f'|format(vessel.target_temp) }}</span> °C
             </p>
+            <p class="mb-1">
+              <span class="fw-semibold">Tolerance:</span>
+              &plusmn;<span id="tolerance-display">{{ '%.1f'|format(vessel.tolerance_c) }}</span> °C
+            </p>
+            <p class="mb-2">
+              <span class="fw-semibold">Status:</span>
+              <span id="tolerance-state"
+                    class="fw-semibold {% if vessel.in_tolerance %}text-success{% else %}text-danger{% endif %}">
+                {% if vessel.in_tolerance %}Within tolerance{% else %}Out of tolerance{% endif %}
+              </span>
+            </p>
             <p class="mb-2">
               <span class="fw-semibold">Heated:</span>
               {% if vessel.heated %}
@@ -73,7 +84,7 @@
               {% endif %}
             </p>
 
-            <!-- NEW: setpoint control -->
+            <!-- Setpoint control -->
             <div class="input-group input-group-sm mb-2">
               <span class="input-group-text">Setpoint °C</span>
               <input type="number"
@@ -88,6 +99,23 @@
               </button>
             </div>
             <small class="text-muted d-block mb-2" id="setpoint-status"></small>
+
+            <!-- Tolerance control -->
+            <div class="input-group input-group-sm mb-2">
+              <span class="input-group-text">Tolerance °C</span>
+              <input type="number"
+                     min="0"
+                     step="0.1"
+                     class="form-control"
+                     id="tolerance-input"
+                     value="{{ '%.1f'|format(vessel.tolerance_c) }}">
+              <button class="btn btn-secondary"
+                      type="button"
+                      id="tolerance-apply">
+                Apply
+              </button>
+            </div>
+            <small class="text-muted d-block mb-2" id="tolerance-status"></small>
 
             <p class="mb-0 small text-muted" id="last-update">
               Last update: {{ vessel.last_update.strftime('%Y-%m-%d %H:%M:%S') }}
@@ -120,7 +148,7 @@
 
     <p class="text-muted small">
       This page is using dummy live data for now. When your ESP controllers are ready,
-      they will POST real telemetry using this vessel's GUID.
+      they will POST real telemetry using this vessel's GUID and respect the tolerance range.
     </p>
   </main>
 
@@ -150,26 +178,47 @@
              pad(dt.getSeconds());
     }
 
+    function updateToleranceState(inTol) {
+      const stateEl = document.getElementById('tolerance-state');
+      if (!stateEl) return;
+      stateEl.textContent = inTol ? 'Within tolerance' : 'Out of tolerance';
+      stateEl.classList.remove('text-success', 'text-danger');
+      stateEl.classList.add(inTol ? 'text-success' : 'text-danger');
+    }
+
     async function refreshVessel() {
       try {
         const res = await fetch(`/api/vessels/${vesselId}`);
         if (!res.ok) return;
         const v = await res.json();
 
-        const curEl     = document.getElementById('current-temp');
-        const tgtEl     = document.getElementById('target-temp');
-        const lastEl    = document.getElementById('last-update');
-        const inputEl   = document.getElementById('setpoint-input');
+        const curEl      = document.getElementById('current-temp');
+        const tgtEl      = document.getElementById('target-temp');
+        const lastEl     = document.getElementById('last-update');
+        const setInputEl = document.getElementById('setpoint-input');
+        const tolDispEl  = document.getElementById('tolerance-display');
+        const tolInputEl = document.getElementById('tolerance-input');
 
         if (v.current_temp !== undefined && curEl) {
           curEl.textContent = v.current_temp.toFixed(1);
         }
         if (v.target_temp !== undefined) {
-          if (tgtEl)   tgtEl.textContent = v.target_temp.toFixed(1);
-          // keep input in sync when not actively editing
-          if (inputEl && document.activeElement !== inputEl) {
-            inputEl.value = v.target_temp.toFixed(1);
+          if (tgtEl) tgtEl.textContent = v.target_temp.toFixed(1);
+          if (setInputEl && document.activeElement !== setInputEl) {
+            setInputEl.value = v.target_temp.toFixed(1);
           }
+        }
+        if (v.tolerance_c !== undefined) {
+          if (tolDispEl) tolDispEl.textContent = v.tolerance_c.toFixed(1);
+          if (tolInputEl && document.activeElement !== tolInputEl) {
+            tolInputEl.value = v.tolerance_c.toFixed(1);
+          }
+        }
+        if (typeof v.in_tolerance === 'boolean') {
+          updateToleranceState(v.in_tolerance);
+        } else if (v.current_temp !== undefined && v.target_temp !== undefined && v.tolerance_c !== undefined) {
+          const diff = Math.abs(v.current_temp - v.target_temp);
+          updateToleranceState(diff <= v.tolerance_c);
         }
         if (v.last_update && lastEl) {
           lastEl.textContent = 'Last update: ' + formatDateFromIso(v.last_update);
@@ -180,9 +229,9 @@
     }
 
     async function applySetpoint() {
-      const inputEl   = document.getElementById('setpoint-input');
-      const statusEl  = document.getElementById('setpoint-status');
-      const targetEl  = document.getElementById('target-temp');
+      const inputEl  = document.getElementById('setpoint-input');
+      const statusEl = document.getElementById('setpoint-status');
+      const tgtEl    = document.getElementById('target-temp');
 
       const newValue = parseFloat(inputEl.value);
       if (isNaN(newValue)) {
@@ -205,12 +254,50 @@
         }
 
         const data = await res.json();
-        if (data.targetTemp !== undefined && targetEl) {
-          targetEl.textContent = data.targetTemp.toFixed(1);
+        if (data.targetTemp !== undefined && tgtEl) {
+          tgtEl.textContent = data.targetTemp.toFixed(1);
         }
         if (statusEl) statusEl.textContent = 'Setpoint updated';
+        refreshVessel();
       } catch (err) {
         console.error('Error setting setpoint', err);
+        if (statusEl) statusEl.textContent = 'Network error';
+      }
+    }
+
+    async function applyTolerance() {
+      const inputEl  = document.getElementById('tolerance-input');
+      const statusEl = document.getElementById('tolerance-status');
+      const dispEl   = document.getElementById('tolerance-display');
+
+      const newValue = parseFloat(inputEl.value);
+      if (isNaN(newValue) || newValue < 0) {
+        if (statusEl) statusEl.textContent = 'Please enter a valid tolerance (>= 0)';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/vessels/${vesselId}/tolerance`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ toleranceC: newValue })
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          if (statusEl) statusEl.textContent =
+            'Error: ' + (err.detail || res.status);
+          return;
+        }
+
+        const data = await res.json();
+        if (data.toleranceC !== undefined && dispEl) {
+          dispEl.textContent = data.toleranceC.toFixed(1);
+        }
+        if (statusEl) statusEl.textContent = 'Tolerance updated';
+        refreshVessel();
+      } catch (err) {
+        console.error('Error setting tolerance', err);
         if (statusEl) statusEl.textContent = 'Network error';
       }
     }
@@ -218,13 +305,21 @@
     // Hook up events
     document.getElementById('setpoint-apply')
             .addEventListener('click', applySetpoint);
-
-    // Allow Enter key in the input to apply
     document.getElementById('setpoint-input')
             .addEventListener('keydown', (e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
                 applySetpoint();
+              }
+            });
+
+    document.getElementById('tolerance-apply')
+            .addEventListener('click', applyTolerance);
+    document.getElementById('tolerance-input')
+            .addEventListener('keydown', (e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                applyTolerance();
               }
             });
 

@@ -229,7 +229,7 @@ def simulate_temps():
 
         v["current_temp"] = round(new_temp, 2)
         v["last_update"] = now
-# -------- Suppliers & Inventory --------
+
 
 def vessel_with_status(v: dict) -> dict:
     """Return a copy of the vessel dict with in_tolerance flag added."""
@@ -244,6 +244,7 @@ def vessel_with_status(v: dict) -> dict:
 
     return {**v, "in_tolerance": in_tolerance}
 
+# -------- Suppliers & Inventory --------
 SUPPLIERS = [
     {
         "id": new_guid(),
@@ -509,11 +510,6 @@ async def api_set_tolerance(vessel_id: str, body: ToleranceUpdate):
     v["tolerance_c"] = body.toleranceC
     v["last_update"] = datetime.now()
     return {"ok": True, "toleranceC": body.toleranceC}
-
-from datetime import datetime  # you probably already have this at the top
-
-# ... rest of your imports & code ...
-
 
 @app.get("/test-email")
 async def test_email():

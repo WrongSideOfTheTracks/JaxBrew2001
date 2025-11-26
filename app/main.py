@@ -3,11 +3,14 @@ from datetime import datetime
 import random
 import uuid
 
-from fastapi import FastAPI, Request, HTTPException, Form
+from fastapi import FastAPI, Request, HTTPException, Form, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+
+from sqlalchemy import create_engine, Column, Integer, String, Text
+from sqlalchemy.orm import sessionmaker, declarative_base, Session
 
 app = FastAPI(title="JaxBrew 2001")
 
@@ -31,9 +34,48 @@ def send_whatsapp_alert(message: str):
     return
 
 
+# -------- DATABASE (MySQL via SQLAlchemy) --------
+DB_URL = os.getenv(
+    "JAXBREW_DB_URL",
+    "mysql+pymysql://jaxbrew:StrongPass123!@localhost:3306/jaxbrew2001",
+)
+
+engine = create_engine(DB_URL, echo=False, future=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+Base = declarative_base()
+
+
+class DBCustomer(Base):
+    __tablename__ = "customers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, nullable=True)
+    name = Column(String(200), nullable=False)
+    email = Column(String(200), nullable=True)
+    phone = Column(String(50), nullable=True)
+    billing_address = Column(Text, nullable=True)
+    shipping_address = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+
+
+# Create tables if they don't exist
+Base.metadata.create_all(bind=engine)
+
+
+def get_db() -> Session:
+    """FastAPI dependency to get a DB session."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+# --------------------------------------
+
+
 def new_guid() -> str:
     """Generate a new GUID (UUID4) as a string."""
     return str(uuid.uuid4())
+
 
 
 # -------- In-memory brewery layout + live fields --------
@@ -216,18 +258,7 @@ SUPPLIERS = [
     },
 ]
 
-CUSTOMERS = [
-    {
-        "id": new_guid(),
-        "code": "CUST-HOUSE",
-        "name": "House Taproom",
-        "email": "info@house-taproom.example",
-        "phone": "",
-        "billing_address": "123 Brewery Lane\nLondon",
-        "shipping_address": "Rear delivery entrance\n123 Brewery Lane\nLondon",
-        "notes": "Regular cask customer.",
-    },
-]
+
 
 
 def check_alerts_for_vessel(v: dict):
@@ -422,12 +453,22 @@ async def create_supplier(
     return RedirectResponse(url="/suppliers", status_code=303)
 
 
+from fastapi import Depends  # add to imports at top
+
+# ... then:
+
 @app.get("/customers", response_class=HTMLResponse)
-async def customers_page(request: Request):
+async def customers_page(request: Request, db: Session = Depends(get_db)):
+    customers = db.query(DBCustomer).order_by(DBCustomer.name).all()
     return templates.TemplateResponse(
         "customers.html",
-        {"request": request, "customers": CUSTOMERS, "current_page": "customers"},
+        {
+            "request": request,
+            "customers": customers,
+            "current_page": "customers",
+        },
     )
+
 
 
 @app.post("/customers/create")
@@ -439,19 +480,23 @@ async def create_customer(
     billing_address: str = Form(""),
     shipping_address: str = Form(""),
     notes: str = Form(""),
+    db: Session = Depends(get_db),
 ):
-    customer = {
-        "id": new_guid(),
-        "code": code.strip() or None,
-        "name": name.strip(),
-        "email": email.strip(),
-        "phone": phone.strip(),
-        "billing_address": billing_address.strip(),
-        "shipping_address": shipping_address.strip(),
-        "notes": notes.strip(),
-    }
-    CUSTOMERS.append(customer)
+    customer = DBCustomer(
+        code=code.strip() or None,
+        name=name.strip(),
+        email=email.strip(),
+        phone=phone.strip(),
+        billing_address=billing_address.strip(),
+        shipping_address=shipping_address.strip(),
+        notes=notes.strip(),
+    )
+    db.add(customer)
+    db.commit()
+    db.refresh(customer)
+
     return RedirectResponse(url="/customers", status_code=303)
+
 
 
 # -------- JSON API: live data --------

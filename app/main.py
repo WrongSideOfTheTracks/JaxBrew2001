@@ -1,20 +1,10 @@
 import os
-import smtplib
-from email.message import EmailMessage
-
-try:
-    from twilio.rest import Client as TwilioClient  # optional
-except ImportError:
-    TwilioClient = None
-
 from datetime import datetime
 import random
 import uuid
 
-from fastapi import FastAPI, Request, HTTPException, Form, Form
+from fastapi import FastAPI, Request, HTTPException, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
-
-, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -29,32 +19,16 @@ templates = Jinja2Templates(directory="templates")
 
 # -------- CONFIG --------
 DUMMY_MODE = True  # set False later when ESP telemetry is live
-# --- ALERT CONFIG (from environment) ---
-SMTP_HOST = os.getenv("JAXBREW_SMTP_HOST")
-SMTP_PORT = int(os.getenv("JAXBREW_SMTP_PORT", "587"))
-SMTP_USER = os.getenv("JAXBREW_SMTP_USER")
-SMTP_PASS = os.getenv("JAXBREW_SMTP_PASS")
 
-ALERT_EMAIL_FROM = os.getenv("JAXBREW_ALERT_EMAIL_FROM")
-ALERT_EMAIL_TO = os.getenv("JAXBREW_ALERT_EMAIL_TO")
-
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-TWILIO_WHATSAPP_FROM = os.getenv("TWILIO_WHATSAPP_FROM")
-WHATSAPP_TO = os.getenv("JAXBREW_WHATSAPP_TO")
-# # --------------------------------------
-# --------------------------------------
+# Stubbed alerts (currently disabled)
 def send_email_alert(subject: str, body: str):
     """Alerts currently disabled (stub)."""
-    # print(f"Alert (disabled): {subject} -> {body}")
     return
 
 
 def send_whatsapp_alert(message: str):
     """WhatsApp alerts currently disabled (stub)."""
-    # print(f"WhatsApp alert (disabled): {message}")
     return
-# ------------------------
 
 
 def new_guid() -> str:
@@ -139,7 +113,7 @@ VESSELS = [
         "notes": "Primary fermentation.",
         "current_temp": 17.5,
         "target_temp": 19.0,
-        "tolerance_c": 2.0,          
+        "tolerance_c": 2.0,
         "last_update": datetime.now(),
     },
 ]
@@ -219,6 +193,7 @@ def vessel_with_status(v: dict) -> dict:
 
     return {**v, "in_tolerance": in_tolerance}
 
+
 # -------- Suppliers & Inventory --------
 SUPPLIERS = [
     {
@@ -254,44 +229,16 @@ CUSTOMERS = [
     },
 ]
 
+
 def check_alerts_for_vessel(v: dict):
     """
-    Check if a vessel has moved into or out of tolerance
-    and send alerts on state changes.
+    Check if a vessel has moved into or out of tolerance.
+    Currently just updates last_in_tolerance; alerts are disabled.
     """
     vs = vessel_with_status(v)
-    current = vs["current_temp"]
-    target = vs["target_temp"]
-    tol = vs["tolerance_c"]
     in_tol = vs["in_tolerance"]
-
-    # track last state on the vessel dict itself
-    prev = v.get("last_in_tolerance")
     v["last_in_tolerance"] = in_tol
-
-    # On first run, don't alert (no previous state to compare)
-    if prev is None:
-        return
-
-    vessel_name = v.get("name", v.get("code", "Unknown vessel"))
-    detail = (
-        f"{vessel_name}: current {current:.1f}°C, "
-        f"target {target:.1f}°C ± {tol:.1f}°C"
-    )
-
-    # Went from OK -> out of tolerance
-    if prev is True and not in_tol:
-        subject = f"JaxBrew ALERT: {vessel_name} out of tolerance"
-        body = "Vessel has gone OUT of tolerance.\n\n" + detail
-        send_email_alert(subject, body)
-        send_whatsapp_alert(subject + " – " + detail)
-
-    # Went from out -> back within tolerance (optional)
-    elif prev is False and in_tol:
-        subject = f"JaxBrew INFO: {vessel_name} back within tolerance"
-        body = "Vessel is back WITHIN tolerance.\n\n" + detail
-        send_email_alert(subject, body)
-        send_whatsapp_alert(subject + " – " + detail)
+    # No alerting while parked
 
 
 def get_supplier(supplier_id: str):
@@ -370,6 +317,7 @@ class Telemetry(BaseModel):
 class Setpoint(BaseModel):
     targetTemp: float
 
+
 class InventoryItem(BaseModel):
     id: str
     code: str
@@ -381,21 +329,26 @@ class InventoryItem(BaseModel):
     current_stock: float
     reorder_level: float
 
+
 class ToleranceUpdate(BaseModel):
     toleranceC: float
 
 
 # -------- Routes: pages --------
+# -------- Routes: pages --------
 @app.get("/", response_class=HTMLResponse)
 async def welcome(request: Request):
-    return templates.TemplateResponse("welcome.html", {"request": request})
+    return templates.TemplateResponse(
+        "welcome.html",
+        {"request": request, "current_page": "home"},
+    )
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
     return templates.TemplateResponse(
         "dashboard.html",
-        {"request": request, "vessels": VESSELS, "pumps": PUMPS},
+        {"request": request, "vessels": VESSELS, "pumps": PUMPS, "current_page": "dashboard"},
     )
 
 
@@ -412,13 +365,13 @@ async def vessel_detail(code: str, request: Request):
         {
             "request": request,
             "vessel": vessel_view,
+            "current_page": "dashboard",  # or "vessels" if you add it to navbar
         },
     )
 
 
 @app.get("/inventory", response_class=HTMLResponse)
 async def inventory_page(request: Request):
-    # Annotate products with supplier names for display convenience
     products_for_view = []
     for p in INVENTORY:
         supplier = get_supplier(p["preferred_supplier_id"])
@@ -434,14 +387,16 @@ async def inventory_page(request: Request):
         {
             "request": request,
             "products": products_for_view,
+            "current_page": "inventory",
         },
     )
+
 
 @app.get("/suppliers", response_class=HTMLResponse)
 async def suppliers_page(request: Request):
     return templates.TemplateResponse(
         "suppliers.html",
-        {"request": request, "suppliers": SUPPLIERS},
+        {"request": request, "suppliers": SUPPLIERS, "current_page": "suppliers"},
     )
 
 
@@ -466,11 +421,12 @@ async def create_supplier(
     SUPPLIERS.append(supplier)
     return RedirectResponse(url="/suppliers", status_code=303)
 
+
 @app.get("/customers", response_class=HTMLResponse)
 async def customers_page(request: Request):
     return templates.TemplateResponse(
         "customers.html",
-        {"request": request, "customers": CUSTOMERS},
+        {"request": request, "customers": CUSTOMERS, "current_page": "customers"},
     )
 
 
@@ -497,50 +453,6 @@ async def create_customer(
     CUSTOMERS.append(customer)
     return RedirectResponse(url="/customers", status_code=303)
 
-@app.get("/", response_class=HTMLResponse)
-async def welcome(request: Request):
-    return templates.TemplateResponse(
-        "welcome.html",
-        {"request": request, "current_page": "home"},
-    )
-
-
-@app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    return templates.TemplateResponse(
-        "dashboard.html",
-        {"request": request, "vessels": VESSELS, "pumps": PUMPS, "current_page": "dashboard"},
-    )
-
-
-@app.get("/inventory", response_class=HTMLResponse)
-async def inventory_page(request: Request):
-    ...
-    return templates.TemplateResponse(
-        "inventory.html",
-        {
-            "request": request,
-            "products": products_for_view,
-            "current_page": "inventory",
-        },
-    )
-
-
-@app.get("/suppliers", response_class=HTMLResponse)
-async def suppliers_page(request: Request):
-    return templates.TemplateResponse(
-        "suppliers.html",
-        {"request": request, "suppliers": SUPPLIERS, "current_page": "suppliers"},
-    )
-
-
-@app.get("/customers", response_class=HTMLResponse)
-async def customers_page(request: Request):
-    return templates.TemplateResponse(
-        "customers.html",
-        {"request": request, "customers": CUSTOMERS, "current_page": "customers"},
-    )
-
 
 # -------- JSON API: live data --------
 @app.get("/api/vessels")
@@ -556,7 +468,6 @@ async def api_get_vessel(vessel_id: str):
     if v is None:
         raise HTTPException(status_code=404, detail="Unknown vessel")
     return vessel_with_status(v)
-
 
 
 @app.post("/api/telemetry")
@@ -575,11 +486,9 @@ async def api_telemetry(data: Telemetry):
     v.setdefault("tolerance_c", 0.0)          # ensure key exists
     v.setdefault("last_in_tolerance", None)   # start state
 
-    # Check alerts (only if you want alerts during dummy mode)
     check_alerts_for_vessel(v)
 
     return {"ok": True}
-
 
 
 @app.post("/api/vessels/{vessel_id}/setpoint")
@@ -594,7 +503,7 @@ async def api_set_setpoint(vessel_id: str, sp: Setpoint):
     v["target_temp"] = sp.targetTemp
     v["last_update"] = datetime.now()
     return {"ok": True, "targetTemp": sp.targetTemp}
-# --------------------------------------
+
 
 @app.post("/api/vessels/{vessel_id}/tolerance")
 async def api_set_tolerance(vessel_id: str, body: ToleranceUpdate):
@@ -608,36 +517,3 @@ async def api_set_tolerance(vessel_id: str, body: ToleranceUpdate):
     v["tolerance_c"] = body.toleranceC
     v["last_update"] = datetime.now()
     return {"ok": True, "toleranceC": body.toleranceC}
-
-
-
-
-# @app.get("/test-email")
-# async def test_email():
-#     """
-#     Simple endpoint to verify SMTP/Zoho settings.
-#     Calls send_email_alert but always returns HTTP 200.
-#     """
-#     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-#     subject = "JaxBrew test email"
-#     body = (
-#         "This is a test email from JaxBrew 2001 on your server.\n\n"
-#         f"Time (server): {now}\n"
-#         "If you see this, SMTP is working."
-#     )
-#     subject = "JaxBrew test email"
-#     body = (
-#         "This is a test email from JaxBrew 2001 on your server.\n\n"
-#         f"Time (server): {now}\n"
-#         "If you see this, SMTP is working."
-#     )
-
-#     # This uses the helper you already added earlier
-#     send_email_alert(subject, body)
-#     # This uses the helper you already added earlier
-#     send_email_alert(subject, body)
-
-#     return {"ok": True, "sent_to": ALERT_EMAIL_TO, "server_time": now}
-#     return {"ok": True, "sent_to": ALERT_EMAIL_TO, "server_time": now}
-

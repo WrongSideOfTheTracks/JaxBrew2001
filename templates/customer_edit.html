@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Edit customer – JaxBrew 2001{% endblock %}
+
+{% block content %}
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <h1 class="h3 mb-1">Edit customer</h1>
+      <p class="text-muted mb-0">
+        Update details for <strong>{{ customer.name }}</strong>.
+      </p>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+      <a href="/customers" class="btn btn-sm btn-outline-secondary">
+        &laquo; Back to customers
+      </a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <form method="post" action="/customers/{{ customer.id }}/edit" class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Name *</label>
+          <input type="text" name="name" class="form-control"
+                 value="{{ customer.name }}" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Code</label>
+          <input type="text" name="code" class="form-control"
+                 value="{{ customer.code or '' }}">
+        </div>
+        <div class="col-md-5">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-control"
+                 value="{{ customer.email or '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Phone</label>
+          <input type="text" name="phone" class="form-control"
+                 value="{{ customer.phone or '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Billing address</label>
+          <textarea name="billing_address" class="form-control" rows="3">{{ customer.billing_address or '' }}</textarea>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Shipping address</label>
+          <textarea name="shipping_address" class="form-control" rows="3">{{ customer.shipping_address or '' }}</textarea>
+        </div>
+        <div class="col-md-12">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-control" rows="2">{{ customer.notes or '' }}</textarea>
+        </div>
+        <div class="col-12 d-flex justify-content-between">
+          <button type="submit" class="btn btn-primary">
+            Save changes
+          </button>
+          <a href="/customers" class="btn btn-outline-secondary">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

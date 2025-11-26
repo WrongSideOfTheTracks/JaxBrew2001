@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Edit supplier – JaxBrew 2001{% endblock %}
+
+{% block content %}
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <h1 class="h3 mb-1">Edit supplier</h1>
+      <p class="text-muted mb-0">
+        Update details for <strong>{{ supplier.name }}</strong>.
+      </p>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+      <a href="/suppliers" class="btn btn-sm btn-outline-secondary">
+        &laquo; Back to suppliers
+      </a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <form method="post" action="/suppliers/{{ supplier.id }}/edit" class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Name *</label>
+          <input type="text" name="name" class="form-control"
+                 value="{{ supplier.name }}" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Code</label>
+          <input type="text" name="code" class="form-control"
+                 value="{{ supplier.code or '' }}">
+        </div>
+        <div class="col-md-5">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-control"
+                 value="{{ supplier.email or '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Phone</label>
+          <input type="text" name="phone" class="form-control"
+                 value="{{ supplier.phone or '' }}">
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">Website</label>
+          <input type="url" name="website" class="form-control"
+                 value="{{ supplier.website or '' }}">
+        </div>
+        <div class="col-md-12">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-control" rows="2">{{ supplier.notes or '' }}</textarea>
+        </div>
+        <div class="col-12 d-flex justify-content-between">
+          <button type="submit" class="btn btn-primary">
+            Save changes
+          </button>
+          <a href="/suppliers" class="btn btn-outline-secondary">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

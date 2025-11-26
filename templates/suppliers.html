@@ -16,38 +16,54 @@
     </div>
 
     <!-- Suppliers table -->
-    <div class="table-responsive mb-4">
-      <table class="table table-sm table-striped align-middle">
-        <thead class="table-dark">
-          <tr>
-            <th scope="col">Code</th>
-            <th scope="col">Name</th>
-            <th scope="col">Email</th>
-            <th scope="col">Phone</th>
-            <th scope="col">Website</th>
-            <th scope="col">Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for s in suppliers %}
-          <tr>
-            <td><code>{{ s.code or '' }}</code></td>
-            <td>{{ s.name }}</td>
-            <td>{{ s.email }}</td>
-            <td>{{ s.phone }}</td>
-            <td>
-              {% if s.website %}
-                <a href="{{ s.website }}" target="_blank" rel="noopener">
-                  {{ s.website }}
-                </a>
-              {% endif %}
-            </td>
-            <td>{{ s.notes }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+      <!-- Suppliers table -->
+  <div class="table-responsive mb-4">
+    <table class="table table-sm table-striped align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th scope="col">Code</th>
+          <th scope="col">Name</th>
+          <th scope="col">Email</th>
+          <th scope="col">Phone</th>
+          <th scope="col">Website</th>
+          <th scope="col">Notes</th>
+          <th scope="col" class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in suppliers %}
+        <tr>
+          <td><code>{{ s.code or '' }}</code></td>
+          <td>{{ s.name }}</td>
+          <td>{{ s.email }}</td>
+          <td>{{ s.phone }}</td>
+          <td>
+            {% if s.website %}
+              <a href="{{ s.website }}" target="_blank" rel="noopener">
+                {{ s.website }}
+              </a>
+            {% endif %}
+          </td>
+          <td>{{ s.notes }}</td>
+          <td class="text-end">
+            <a href="/suppliers/{{ s.id }}/edit"
+               class="btn btn-sm btn-outline-secondary">
+              Edit
+            </a>
+            <form method="post"
+                  action="/suppliers/{{ s.id }}/delete"
+                  class="d-inline"
+                  onsubmit="return confirm('Delete this supplier?');">
+              <button type="submit" class="btn btn-sm btn-outline-danger">
+                Delete
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
     <!-- Add supplier form -->
     <div class="card">

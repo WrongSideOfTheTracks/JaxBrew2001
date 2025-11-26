@@ -500,6 +500,77 @@ async def create_supplier(
     return RedirectResponse(url="/suppliers", status_code=303)
 
 
+@app.get("/suppliers/{supplier_id}/edit", response_class=HTMLResponse)
+async def edit_supplier_page(
+    supplier_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    supplier = (
+        db.query(DBSupplier)
+        .filter(DBSupplier.id == supplier_id)
+        .first()
+    )
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    return templates.TemplateResponse(
+        "supplier_edit.html",
+        {
+            "request": request,
+            "supplier": supplier,
+            "current_page": "suppliers",
+        },
+    )
+
+
+@app.post("/suppliers/{supplier_id}/edit")
+async def update_supplier(
+    supplier_id: int,
+    name: str = Form(...),
+    code: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    website: str = Form(""),
+    notes: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    supplier = (
+        db.query(DBSupplier)
+        .filter(DBSupplier.id == supplier_id)
+        .first()
+    )
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    supplier.code = code.strip() or None
+    supplier.name = name.strip()
+    supplier.email = email.strip()
+    supplier.phone = phone.strip()
+    supplier.website = website.strip()
+    supplier.notes = notes.strip()
+
+    db.commit()
+
+    return RedirectResponse(url="/suppliers", status_code=303)
+
+
+@app.post("/suppliers/{supplier_id}/delete")
+async def delete_supplier(
+    supplier_id: int,
+    db: Session = Depends(get_db),
+):
+    supplier = (
+        db.query(DBSupplier)
+        .filter(DBSupplier.id == supplier_id)
+        .first()
+    )
+    if not supplier:
+        return RedirectResponse(url="/suppliers", status_code=303)
+
+    db.delete(supplier)
+    db.commit()
+    return RedirectResponse(url="/suppliers", status_code=303)
 
 
 # ... then:
@@ -544,6 +615,80 @@ async def create_customer(
 
     return RedirectResponse(url="/customers", status_code=303)
 
+@app.get("/customers/{customer_id}/edit", response_class=HTMLResponse)
+async def edit_customer_page(
+    customer_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    customer = (
+        db.query(DBCustomer)
+        .filter(DBCustomer.id == customer_id)
+        .first()
+    )
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    return templates.TemplateResponse(
+        "customer_edit.html",
+        {
+            "request": request,
+            "customer": customer,
+            "current_page": "customers",
+        },
+    )
+
+
+@app.post("/customers/{customer_id}/edit")
+async def update_customer(
+    customer_id: int,
+    name: str = Form(...),
+    code: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    billing_address: str = Form(""),
+    shipping_address: str = Form(""),
+    notes: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    customer = (
+        db.query(DBCustomer)
+        .filter(DBCustomer.id == customer_id)
+        .first()
+    )
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    customer.code = code.strip() or None
+    customer.name = name.strip()
+    customer.email = email.strip()
+    customer.phone = phone.strip()
+    customer.billing_address = billing_address.strip()
+    customer.shipping_address = shipping_address.strip()
+    customer.notes = notes.strip()
+
+    db.commit()
+
+    return RedirectResponse(url="/customers", status_code=303)
+
+
+@app.post("/customers/{customer_id}/delete")
+async def delete_customer(
+    customer_id: int,
+    db: Session = Depends(get_db),
+):
+    customer = (
+        db.query(DBCustomer)
+        .filter(DBCustomer.id == customer_id)
+        .first()
+    )
+    if not customer:
+        # Already gone; just redirect
+        return RedirectResponse(url="/customers", status_code=303)
+
+    db.delete(customer)
+    db.commit()
+    return RedirectResponse(url="/customers", status_code=303)
 
 
 # -------- JSON API: live data --------

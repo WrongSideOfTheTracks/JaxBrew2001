@@ -6,16 +6,17 @@
 
 
 
-  <main class="container py-4">
-    <div class="row mb-4">
-      <div class="col-md-7">
-        <h1 class="h3 mb-1">Customers</h1>
-        <p class="text-muted mb-0">
-          Outlets or people you supply beer to.
-        </p>
-      </div>
+<main class="container py-4">
+  <div class="row mb-4">
+    <div class="col-md-7">
+      <h1 class="h3 mb-1">Customers</h1>
+      <p class="text-muted mb-0">
+        Outlets or people you supply beer to.
+      </p>
     </div>
+  </div>
 
+  <!-- Customers table -->
   <!-- Customers table -->
   <div class="table-responsive mb-4">
     <table class="table table-sm table-striped align-middle">
@@ -28,6 +29,7 @@
           <th scope="col">Billing address</th>
           <th scope="col">Shipping address</th>
           <th scope="col">Notes</th>
+          <th scope="col" class="text-end">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -37,62 +39,78 @@
           <td>{{ c.name }}</td>
           <td>{{ c.email }}</td>
           <td>{{ c.phone }}</td>
-          <td><pre class="mb-0 small">{{ c.billing_address }}</pre></td>
-          <td><pre class="mb-0 small">{{ c.shipping_address }}</pre></td>
+          <td>
+            <pre class="mb-0 small">{{ c.billing_address }}</pre>
+          </td>
+          <td>
+            <pre class="mb-0 small">{{ c.shipping_address }}</pre>
+          </td>
           <td>{{ c.notes }}</td>
+          <td class="text-end">
+            <a href="/customers/{{ c.id }}/edit" class="btn btn-sm btn-outline-secondary">
+              Edit
+            </a>
+            <form method="post" action="/customers/{{ c.id }}/delete" class="d-inline"
+              onsubmit="return confirm('Delete this customer?');">
+              <button type="submit" class="btn btn-sm btn-outline-danger">
+                Delete
+              </button>
+            </form>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 
-    <!-- Add customer form -->
-    <div class="card">
-      <div class="card-body">
-        <h2 class="h5 mb-3">Add customer</h2>
-        <form method="post" action="/customers/create" class="row g-3">
-          <div class="col-md-4">
-            <label class="form-label">Name *</label>
-            <input type="text" name="name" class="form-control" required>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">Code</label>
-            <input type="text" name="code" class="form-control" placeholder="CUST-001">
-          </div>
-          <div class="col-md-5">
-            <label class="form-label">Email</label>
-            <input type="email" name="email" class="form-control" placeholder="info@example.com">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Phone</label>
-            <input type="text" name="phone" class="form-control" placeholder="+44...">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Billing address</label>
-            <textarea name="billing_address" class="form-control" rows="3"></textarea>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Shipping address</label>
-            <textarea name="shipping_address" class="form-control" rows="3"></textarea>
-          </div>
-          <div class="col-md-12">
-            <label class="form-label">Notes</label>
-            <textarea name="notes" class="form-control" rows="2"></textarea>
-          </div>
-          <div class="col-12">
-            <button type="submit" class="btn btn-primary">
-              Add customer
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </main>
 
-  <footer class="border-top py-3 mt-4">
-    <div class="container text-center text-muted small">
-      &copy; <span id="year"></span> JaxBrew 2001
+  <!-- Add customer form -->
+  <div class="card">
+    <div class="card-body">
+      <h2 class="h5 mb-3">Add customer</h2>
+      <form method="post" action="/customers/create" class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Name *</label>
+          <input type="text" name="name" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Code</label>
+          <input type="text" name="code" class="form-control" placeholder="CUST-001">
+        </div>
+        <div class="col-md-5">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-control" placeholder="info@example.com">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Phone</label>
+          <input type="text" name="phone" class="form-control" placeholder="+44...">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Billing address</label>
+          <textarea name="billing_address" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Shipping address</label>
+          <textarea name="shipping_address" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="col-md-12">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary">
+            Add customer
+          </button>
+        </div>
+      </form>
     </div>
-  </footer>
+  </div>
+</main>
+
+<footer class="border-top py-3 mt-4">
+  <div class="container text-center text-muted small">
+    &copy; <span id="year"></span> JaxBrew 2001
+  </div>
+</footer>
 
 {% endblock %}

@@ -42,45 +42,18 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_WHATSAPP_FROM = os.getenv("TWILIO_WHATSAPP_FROM")
 WHATSAPP_TO = os.getenv("JAXBREW_WHATSAPP_TO")
+# # --------------------------------------
 # --------------------------------------
 def send_email_alert(subject: str, body: str):
-    """Send a simple email alert if email settings are configured."""
-    if not (SMTP_HOST and ALERT_EMAIL_FROM and ALERT_EMAIL_TO):
-        return  # email not configured, silently skip
-
-    msg = EmailMessage()
-    msg["From"] = ALERT_EMAIL_FROM
-    msg["To"] = ALERT_EMAIL_TO
-    msg["Subject"] = subject
-    msg.set_content(body)
-
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            if SMTP_USER and SMTP_PASS:
-                server.login(SMTP_USER, SMTP_PASS)
-            server.send_message(msg)
-    except Exception as e:
-        # In real life you might log this; for now we just print
-        print("Error sending email alert:", e)
+    """Alerts currently disabled (stub)."""
+    # print(f"Alert (disabled): {subject} -> {body}")
+    return
 
 
 def send_whatsapp_alert(message: str):
-    """Send a WhatsApp alert via Twilio if configured."""
-    if not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and
-            TWILIO_WHATSAPP_FROM and WHATSAPP_TO and TwilioClient):
-        return  # WhatsApp not configured
-
-    try:
-        client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        client.messages.create(
-            body=message,
-            from_=TWILIO_WHATSAPP_FROM,
-            to=WHATSAPP_TO,
-        )
-    except Exception as e:
-        print("Error sending WhatsApp alert:", e)
-
+    """WhatsApp alerts currently disabled (stub)."""
+    # print(f"WhatsApp alert (disabled): {message}")
+    return
 # ------------------------
 
 
@@ -464,6 +437,109 @@ async def inventory_page(request: Request):
         },
     )
 
+@app.get("/suppliers", response_class=HTMLResponse)
+async def suppliers_page(request: Request):
+    return templates.TemplateResponse(
+        "suppliers.html",
+        {"request": request, "suppliers": SUPPLIERS},
+    )
+
+
+@app.post("/suppliers/create")
+async def create_supplier(
+    name: str = Form(...),
+    code: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    website: str = Form(""),
+    notes: str = Form(""),
+):
+    supplier = {
+        "id": new_guid(),
+        "code": code.strip() or None,
+        "name": name.strip(),
+        "email": email.strip(),
+        "phone": phone.strip(),
+        "website": website.strip(),
+        "notes": notes.strip(),
+    }
+    SUPPLIERS.append(supplier)
+    return RedirectResponse(url="/suppliers", status_code=303)
+
+@app.get("/customers", response_class=HTMLResponse)
+async def customers_page(request: Request):
+    return templates.TemplateResponse(
+        "customers.html",
+        {"request": request, "customers": CUSTOMERS},
+    )
+
+
+@app.post("/customers/create")
+async def create_customer(
+    name: str = Form(...),
+    code: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    billing_address: str = Form(""),
+    shipping_address: str = Form(""),
+    notes: str = Form(""),
+):
+    customer = {
+        "id": new_guid(),
+        "code": code.strip() or None,
+        "name": name.strip(),
+        "email": email.strip(),
+        "phone": phone.strip(),
+        "billing_address": billing_address.strip(),
+        "shipping_address": shipping_address.strip(),
+        "notes": notes.strip(),
+    }
+    CUSTOMERS.append(customer)
+    return RedirectResponse(url="/customers", status_code=303)
+
+@app.get("/", response_class=HTMLResponse)
+async def welcome(request: Request):
+    return templates.TemplateResponse(
+        "welcome.html",
+        {"request": request, "current_page": "home"},
+    )
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {"request": request, "vessels": VESSELS, "pumps": PUMPS, "current_page": "dashboard"},
+    )
+
+
+@app.get("/inventory", response_class=HTMLResponse)
+async def inventory_page(request: Request):
+    ...
+    return templates.TemplateResponse(
+        "inventory.html",
+        {
+            "request": request,
+            "products": products_for_view,
+            "current_page": "inventory",
+        },
+    )
+
+
+@app.get("/suppliers", response_class=HTMLResponse)
+async def suppliers_page(request: Request):
+    return templates.TemplateResponse(
+        "suppliers.html",
+        {"request": request, "suppliers": SUPPLIERS, "current_page": "suppliers"},
+    )
+
+
+@app.get("/customers", response_class=HTMLResponse)
+async def customers_page(request: Request):
+    return templates.TemplateResponse(
+        "customers.html",
+        {"request": request, "customers": CUSTOMERS, "current_page": "customers"},
+    )
 
 
 # -------- JSON API: live data --------
@@ -533,6 +609,9 @@ async def api_set_tolerance(vessel_id: str, body: ToleranceUpdate):
     v["last_update"] = datetime.now()
     return {"ok": True, "toleranceC": body.toleranceC}
 
+
+
+
 # @app.get("/test-email")
 # async def test_email():
 #     """
@@ -547,9 +626,18 @@ async def api_set_tolerance(vessel_id: str, body: ToleranceUpdate):
 #         f"Time (server): {now}\n"
 #         "If you see this, SMTP is working."
 #     )
+#     subject = "JaxBrew test email"
+#     body = (
+#         "This is a test email from JaxBrew 2001 on your server.\n\n"
+#         f"Time (server): {now}\n"
+#         "If you see this, SMTP is working."
+#     )
 
 #     # This uses the helper you already added earlier
 #     send_email_alert(subject, body)
+#     # This uses the helper you already added earlier
+#     send_email_alert(subject, body)
 
+#     return {"ok": True, "sent_to": ALERT_EMAIL_TO, "server_time": now}
 #     return {"ok": True, "sent_to": ALERT_EMAIL_TO, "server_time": now}
 

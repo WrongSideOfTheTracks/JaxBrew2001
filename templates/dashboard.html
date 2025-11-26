@@ -5,6 +5,13 @@
 {% block content %}
 
 
+{% extends "base.html" %}
+
+{% block title %}Dashboard – JaxBrew 2001{% endblock %}
+
+{% block content %}
+
+
 
   <main class="container py-4">
     <div class="row mb-4 align-items-center">
@@ -97,7 +104,9 @@
   </main>
 
 
+
 <script>
+
 
 
   async function refreshVessels() {
@@ -182,5 +191,7 @@
   // Initial refresh
   refreshVessels();
 </script>
+
+
 
 {% endblock %}

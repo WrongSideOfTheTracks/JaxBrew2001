@@ -16,35 +16,35 @@
       </div>
     </div>
 
-    <!-- Customers table -->
-    <div class="table-responsive mb-4">
-      <table class="table table-sm table-striped align-middle">
-        <thead class="table-dark">
-          <tr>
-            <th scope="col">Code</th>
-            <th scope="col">Name</th>
-            <th scope="col">Email</th>
-            <th scope="col">Phone</th>
-            <th scope="col">Billing address</th>
-            <th scope="col">Shipping address</th>
-            <th scope="col">Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for c in customers %}
-          <tr>
-            <td><code>{{ c.code or '' }}</code></td>
-            <td>{{ c.name }}</td>
-            <td>{{ c.email }}</td>
-            <td>{{ c.phone }}</td>
-            <td><pre class="mb-0 small">{{ c.billing_address }}</pre></td>
-            <td><pre class="mb-0 small">{{ c.shipping_address }}</pre></td>
-            <td>{{ c.notes }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+  <!-- Customers table -->
+  <div class="table-responsive mb-4">
+    <table class="table table-sm table-striped align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th scope="col">Code</th>
+          <th scope="col">Name</th>
+          <th scope="col">Email</th>
+          <th scope="col">Phone</th>
+          <th scope="col">Billing address</th>
+          <th scope="col">Shipping address</th>
+          <th scope="col">Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in customers %}
+        <tr>
+          <td><code>{{ c.code or '' }}</code></td>
+          <td>{{ c.name }}</td>
+          <td>{{ c.email }}</td>
+          <td>{{ c.phone }}</td>
+          <td><pre class="mb-0 small">{{ c.billing_address }}</pre></td>
+          <td><pre class="mb-0 small">{{ c.shipping_address }}</pre></td>
+          <td>{{ c.notes }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
     <!-- Add customer form -->
     <div class="card">

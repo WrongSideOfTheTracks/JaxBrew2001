@@ -1,9 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}Vessel – JaxBrew 2001{% endblock %}
+{% block title %}Vessel– JaxBrew 2001{% endblock %}
 
 {% block content %}
-
 
 
 
@@ -124,9 +123,8 @@
     </p>
   </main>
 
-
   <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
+
 
     const vesselId = "{{ vessel.id }}";  // GUID from backend
 
@@ -291,4 +289,5 @@
     setInterval(refreshVessel, 5000);
     refreshVessel();
   </script>
+
 {% endblock %}

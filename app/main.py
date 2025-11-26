@@ -58,8 +58,21 @@ class DBCustomer(Base):
     notes = Column(Text, nullable=True)
 
 
+class DBSupplier(Base):
+    __tablename__ = "suppliers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, nullable=True)
+    name = Column(String(200), nullable=False)
+    email = Column(String(200), nullable=True)
+    phone = Column(String(50), nullable=True)
+    website = Column(String(255), nullable=True)
+    notes = Column(Text, nullable=True)
+
+
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
+
 
 
 def get_db() -> Session:
@@ -258,6 +271,33 @@ SUPPLIERS = [
     },
 ]
 
+def seed_suppliers_into_db():
+    """If DB suppliers table is empty, seed it from the in-memory SUPPLIERS list."""
+    db = SessionLocal()
+    try:
+        count = db.query(DBSupplier).count()
+        if count == 0:
+            for s in SUPPLIERS:
+                sup = DBSupplier(
+                    code=s["code"],
+                    name=s["name"],
+                    email=s["email"],
+                    phone=s["phone"],
+                    website=s["website"],
+                    notes=s["notes"],
+                )
+                db.add(sup)
+            db.commit()
+            print("Seeded suppliers table from SUPPLIERS list.")
+    except Exception as e:
+        print("Error seeding suppliers:", e)
+    finally:
+        db.close()
+
+
+# Run seeding once at startup
+seed_suppliers_into_db()
+
 
 
 
@@ -422,12 +462,16 @@ async def inventory_page(request: Request):
         },
     )
 
-
 @app.get("/suppliers", response_class=HTMLResponse)
-async def suppliers_page(request: Request):
+async def suppliers_page(request: Request, db: Session = Depends(get_db)):
+    suppliers = db.query(DBSupplier).order_by(DBSupplier.name).all()
     return templates.TemplateResponse(
         "suppliers.html",
-        {"request": request, "suppliers": SUPPLIERS, "current_page": "suppliers"},
+        {
+            "request": request,
+            "suppliers": suppliers,
+            "current_page": "suppliers",
+        },
     )
 
 
@@ -439,21 +483,24 @@ async def create_supplier(
     phone: str = Form(""),
     website: str = Form(""),
     notes: str = Form(""),
+    db: Session = Depends(get_db),
 ):
-    supplier = {
-        "id": new_guid(),
-        "code": code.strip() or None,
-        "name": name.strip(),
-        "email": email.strip(),
-        "phone": phone.strip(),
-        "website": website.strip(),
-        "notes": notes.strip(),
-    }
-    SUPPLIERS.append(supplier)
+    supplier = DBSupplier(
+        code=code.strip() or None,
+        name=name.strip(),
+        email=email.strip(),
+        phone=phone.strip(),
+        website=website.strip(),
+        notes=notes.strip(),
+    )
+    db.add(supplier)
+    db.commit()
+    db.refresh(supplier)
+
     return RedirectResponse(url="/suppliers", status_code=303)
 
 
-from fastapi import Depends  # add to imports at top
+
 
 # ... then:
 

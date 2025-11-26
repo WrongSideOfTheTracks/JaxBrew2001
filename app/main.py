@@ -11,8 +11,8 @@ from datetime import datetime
 import random
 import uuid
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, HTTPException, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -42,42 +42,16 @@ TWILIO_WHATSAPP_FROM = os.getenv("TWILIO_WHATSAPP_FROM")
 WHATSAPP_TO = os.getenv("JAXBREW_WHATSAPP_TO")
 # --------------------------------------
 def send_email_alert(subject: str, body: str):
-    """Send a simple email alert if email settings are configured."""
-    if not (SMTP_HOST and ALERT_EMAIL_FROM and ALERT_EMAIL_TO):
-        return  # email not configured, silently skip
-
-    msg = EmailMessage()
-    msg["From"] = ALERT_EMAIL_FROM
-    msg["To"] = ALERT_EMAIL_TO
-    msg["Subject"] = subject
-    msg.set_content(body)
-
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            if SMTP_USER and SMTP_PASS:
-                server.login(SMTP_USER, SMTP_PASS)
-            server.send_message(msg)
-    except Exception as e:
-        # In real life you might log this; for now we just print
-        print("Error sending email alert:", e)
+    """Alerts currently disabled."""
+    # print(f"Alert (disabled): {subject} -> {body}")
+    return
 
 
 def send_whatsapp_alert(message: str):
-    """Send a WhatsApp alert via Twilio if configured."""
-    if not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and
-            TWILIO_WHATSAPP_FROM and WHATSAPP_TO and TwilioClient):
-        return  # WhatsApp not configured
+    """WhatsApp alerts currently disabled."""
+    # print(f"WhatsApp alert (disabled): {message}")
+    return
 
-    try:
-        client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        client.messages.create(
-            body=message,
-            from_=TWILIO_WHATSAPP_FROM,
-            to=WHATSAPP_TO,
-        )
-    except Exception as e:
-        print("Error sending WhatsApp alert:", e)
 
 # ------------------------
 
@@ -248,15 +222,37 @@ def vessel_with_status(v: dict) -> dict:
 SUPPLIERS = [
     {
         "id": new_guid(),
+        "code": "SUP-BREWSHOP",
         "name": "BrewShop UK",
+        "email": "sales@brewshop.example",
+        "phone": "",
         "website": "https://example-brewshop.co.uk",
+        "notes": "Main malt & hops supplier.",
     },
     {
         "id": new_guid(),
+        "code": "SUP-YEASTHOPS",
         "name": "Yeast & Hops Ltd",
+        "email": "orders@yeastandhops.example",
+        "phone": "",
         "website": "https://example-yeastandhops.com",
+        "notes": "Yeast and speciality hops.",
     },
 ]
+
+CUSTOMERS = [
+    {
+        "id": new_guid(),
+        "code": "CUST-HOUSE",
+        "name": "House Taproom",
+        "email": "info@house-taproom.example",
+        "phone": "",
+        "billing_address": "123 Brewery Lane\nLondon",
+        "shipping_address": "Rear delivery entrance\n123 Brewery Lane\nLondon",
+        "notes": "Regular cask customer.",
+    },
+]
+
 
 def check_alerts_for_vessel(v: dict):
     """
@@ -420,7 +416,6 @@ async def vessel_detail(code: str, request: Request):
     )
 
 
-
 @app.get("/inventory", response_class=HTMLResponse)
 async def inventory_page(request: Request):
     # Annotate products with supplier names for display convenience
@@ -442,7 +437,65 @@ async def inventory_page(request: Request):
         },
     )
 
+@app.get("/suppliers", response_class=HTMLResponse)
+async def suppliers_page(request: Request):
+    return templates.TemplateResponse(
+        "suppliers.html",
+        {"request": request, "suppliers": SUPPLIERS},
+    )
 
+
+@app.post("/suppliers/create")
+async def create_supplier(
+    name: str = Form(...),
+    code: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    website: str = Form(""),
+    notes: str = Form(""),
+):
+    supplier = {
+        "id": new_guid(),
+        "code": code.strip() or None,
+        "name": name.strip(),
+        "email": email.strip(),
+        "phone": phone.strip(),
+        "website": website.strip(),
+        "notes": notes.strip(),
+    }
+    SUPPLIERS.append(supplier)
+    return RedirectResponse(url="/suppliers", status_code=303)
+
+@app.get("/customers", response_class=HTMLResponse)
+async def customers_page(request: Request):
+    return templates.TemplateResponse(
+        "customers.html",
+        {"request": request, "customers": CUSTOMERS},
+    )
+
+
+@app.post("/customers/create")
+async def create_customer(
+    name: str = Form(...),
+    code: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    billing_address: str = Form(""),
+    shipping_address: str = Form(""),
+    notes: str = Form(""),
+):
+    customer = {
+        "id": new_guid(),
+        "code": code.strip() or None,
+        "name": name.strip(),
+        "email": email.strip(),
+        "phone": phone.strip(),
+        "billing_address": billing_address.strip(),
+        "shipping_address": shipping_address.strip(),
+        "notes": notes.strip(),
+    }
+    CUSTOMERS.append(customer)
+    return RedirectResponse(url="/customers", status_code=303)
 
 # -------- JSON API: live data --------
 @app.get("/api/vessels")
@@ -511,23 +564,23 @@ async def api_set_tolerance(vessel_id: str, body: ToleranceUpdate):
     v["last_update"] = datetime.now()
     return {"ok": True, "toleranceC": body.toleranceC}
 
-@app.get("/test-email")
-async def test_email():
-    """
-    Simple endpoint to verify SMTP/Zoho settings.
-    Calls send_email_alert but always returns HTTP 200.
-    """
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+# @app.get("/test-email")
+# async def test_email():
+#     """
+#     Simple endpoint to verify SMTP/Zoho settings.
+#     Calls send_email_alert but always returns HTTP 200.
+#     """
+#     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    subject = "JaxBrew test email"
-    body = (
-        "This is a test email from JaxBrew 2001 on your server.\n\n"
-        f"Time (server): {now}\n"
-        "If you see this, SMTP is working."
-    )
+#     subject = "JaxBrew test email"
+#     body = (
+#         "This is a test email from JaxBrew 2001 on your server.\n\n"
+#         f"Time (server): {now}\n"
+#         "If you see this, SMTP is working."
+#     )
 
-    # This uses the helper you already added earlier
-    send_email_alert(subject, body)
+#     # This uses the helper you already added earlier
+#     send_email_alert(subject, body)
 
-    return {"ok": True, "sent_to": ALERT_EMAIL_TO, "server_time": now}
+#     return {"ok": True, "sent_to": ALERT_EMAIL_TO, "server_time": now}
 

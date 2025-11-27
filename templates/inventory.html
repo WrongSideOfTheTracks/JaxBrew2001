@@ -3,54 +3,110 @@
 {% block title %}Inventory – JaxBrew 2001{% endblock %}
 
 {% block content %}
-
-
-
-
-  <main class="container py-4">
-    <div class="row mb-4">
-      <div class="col">
-        <h1 class="h3 mb-1">Inventory</h1>
-        <p class="text-muted mb-0">
-          Ingredients and other products (cleaning, water treatment, etc.) with preferred suppliers and stock levels.
-        </p>
-      </div>
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <h1 class="h3 mb-1">Inventory</h1>
+      <p class="text-muted mb-0">
+        Ingredients and other stock items currently in the brewery.
+      </p>
     </div>
+  </div>
 
-    <div class="table-responsive">
-      <table class="table table-sm table-striped align-middle">
-        <thead class="table-dark">
-          <tr>
-            <th scope="col">Code</th>
-            <th scope="col">Name</th>
-            <th scope="col">Category</th>
-            <th scope="col" class="text-end">Stock</th>
-            <th scope="col">Unit</th>
-            <th scope="col" class="text-end">Reorder @</th>
-            <th scope="col">Preferred Supplier</th>
-            <th scope="col">Supplier Product Code</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for p in products %}
-          <tr class="{% if p.current_stock <= p.reorder_level %}table-warning{% endif %}">
-            <td><code>{{ p.code }}</code></td>
-            <td>{{ p.name }}</td>
-            <td>{{ p.category }}</td>
-            <td class="text-end">{{ '%.2f'|format(p.current_stock) }}</td>
-            <td>{{ p.unit }}</td>
-            <td class="text-end">{{ '%.2f'|format(p.reorder_level) }}</td>
-            <td>{{ p.preferred_supplier_name }}</td>
-            <td><code>{{ p.supplier_product_code }}</code></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  <!-- Inventory table -->
+  <div class="table-responsive mb-4">
+    <table class="table table-sm table-striped align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th scope="col">Code</th>
+          <th scope="col">Name</th>
+          <th scope="col">Category</th>
+          <th scope="col">Supplier</th>
+          <th scope="col">Stock</th>
+          <th scope="col">Reorder &lt;=</th>
+          <th scope="col">Supplier product code</th>
+          <th scope="col" class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+        <tr>
+          <td><code>{{ p.code }}</code></td>
+          <td>{{ p.name }}</td>
+          <td>{{ p.category }}</td>
+          <td>{{ p.supplier_name }}</td>
+          <td>{{ '%.2f' % p.current_stock }} {{ p.unit }}</td>
+          <td>{{ '%.2f' % p.reorder_level }} {{ p.unit }}</td>
+          <td>{{ p.supplier_product_code }}</td>
+          <td class="text-end">
+            <a href="/inventory/{{ p.id }}/edit"
+               class="btn btn-sm btn-outline-secondary">
+              Edit
+            </a>
+            <form method="post"
+                  action="/inventory/{{ p.id }}/delete"
+                  class="d-inline"
+                  onsubmit="return confirm('Delete this inventory item?');">
+              <button type="submit" class="btn btn-sm btn-outline-danger">
+                Delete
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Add inventory item form -->
+  <div class="card">
+    <div class="card-body">
+      <h2 class="h5 mb-3">Add inventory item</h2>
+      <form method="post" action="/inventory/create" class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Name *</label>
+          <input type="text" name="name" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Code *</label>
+          <input type="text" name="code" class="form-control" required placeholder="MALT-NEW-25KG">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Category</label>
+          <input type="text" name="category" class="form-control" placeholder="malt / hop / yeast / cleaning">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Unit</label>
+          <input type="text" name="unit" class="form-control" placeholder="kg / g / L / packet">
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Supplier</label>
+          <select name="supplier_id" class="form-select">
+            <option value="">-- None --</option>
+            {% for s in suppliers %}
+              <option value="{{ s.id }}">{{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Supplier product code</label>
+          <input type="text" name="supplier_product_code" class="form-control" placeholder="MO-25">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Current stock</label>
+          <input type="number" name="current_stock" step="0.01" class="form-control" value="0">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Reorder level</label>
+          <input type="number" name="reorder_level" step="0.01" class="form-control" value="0">
+        </div>
+
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary">
+            Add item
+          </button>
+        </div>
+      </form>
     </div>
-
-    <p class="text-muted small mt-2">
-      Rows highlighted in yellow are at or below their reorder level.
-      Later we can add forms to add/edit products and log usage per brew.
-    </p>
-  </main>
+  </div>
 {% endblock %}

@@ -500,11 +500,13 @@ async def inventory_page(request: Request, db: Session = Depends(get_db)):
         .order_by(DBInventoryItem.category, DBInventoryItem.name)
         .all()
     )
+    suppliers_db = db.query(DBSupplier).order_by(DBSupplier.name).all()
 
-    products_for_view = []
+    # Flatten items for the template
+    products = []
     for item in items:
         supplier_name = item.supplier.name if item.supplier else "Unknown"
-        products_for_view.append(
+        products.append(
             {
                 "id": item.id,
                 "code": item.code,
@@ -513,7 +515,8 @@ async def inventory_page(request: Request, db: Session = Depends(get_db)):
                 "unit": item.unit,
                 "current_stock": item.current_stock,
                 "reorder_level": item.reorder_level,
-                "preferred_supplier_name": supplier_name,
+                "supplier_id": item.supplier_id,
+                "supplier_name": supplier_name,
                 "supplier_product_code": item.supplier_product_code,
             }
         )
@@ -522,10 +525,153 @@ async def inventory_page(request: Request, db: Session = Depends(get_db)):
         "inventory.html",
         {
             "request": request,
-            "products": products_for_view,
+            "products": products,
+            "suppliers": suppliers_db,   # for dropdown in the form
             "current_page": "inventory",
         },
     )
+
+@app.post("/inventory/create")
+async def create_inventory_item(
+    name: str = Form(...),
+    code: str = Form(...),
+    category: str = Form(""),
+    unit: str = Form(""),
+    supplier_id: str = Form(""),
+    supplier_product_code: str = Form(""),
+    current_stock: str = Form("0"),
+    reorder_level: str = Form("0"),
+    db: Session = Depends(get_db),
+):
+    # Parse supplier_id
+    supplier_id_int = None
+    if supplier_id.strip():
+        try:
+            supplier_id_int = int(supplier_id)
+        except ValueError:
+            supplier_id_int = None
+
+    # Parse numbers safely
+    try:
+        current_stock_val = float(current_stock)
+    except ValueError:
+        current_stock_val = 0.0
+
+    try:
+        reorder_level_val = float(reorder_level)
+    except ValueError:
+        reorder_level_val = 0.0
+
+    item = DBInventoryItem(
+        code=code.strip(),
+        name=name.strip(),
+        category=category.strip() or "other",
+        unit=unit.strip() or "",
+        supplier_id=supplier_id_int,
+        supplier_product_code=supplier_product_code.strip(),
+        current_stock=current_stock_val,
+        reorder_level=reorder_level_val,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+
+    return RedirectResponse(url="/inventory", status_code=303)
+
+
+@app.get("/inventory/{item_id}/edit", response_class=HTMLResponse)
+async def edit_inventory_item_page(
+    item_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    item = (
+        db.query(DBInventoryItem)
+        .filter(DBInventoryItem.id == item_id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+
+    suppliers = db.query(DBSupplier).order_by(DBSupplier.name).all()
+
+    return templates.TemplateResponse(
+        "inventory_edit.html",
+        {
+            "request": request,
+            "item": item,
+            "suppliers": suppliers,
+            "current_page": "inventory",
+        },
+    )
+
+@app.post("/inventory/{item_id}/edit")
+async def update_inventory_item(
+    item_id: int,
+    name: str = Form(...),
+    code: str = Form(...),
+    category: str = Form(""),
+    unit: str = Form(""),
+    supplier_id: str = Form(""),
+    supplier_product_code: str = Form(""),
+    current_stock: str = Form("0"),
+    reorder_level: str = Form("0"),
+    db: Session = Depends(get_db),
+):
+    item = (
+        db.query(DBInventoryItem)
+        .filter(DBInventoryItem.id == item_id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+
+    supplier_id_int = None
+    if supplier_id.strip():
+        try:
+            supplier_id_int = int(supplier_id)
+        except ValueError:
+            supplier_id_int = None
+
+    try:
+        current_stock_val = float(current_stock)
+    except ValueError:
+        current_stock_val = 0.0
+
+    try:
+        reorder_level_val = float(reorder_level)
+    except ValueError:
+        reorder_level_val = 0.0
+
+    item.code = code.strip()
+    item.name = name.strip()
+    item.category = category.strip() or "other"
+    item.unit = unit.strip() or ""
+    item.supplier_id = supplier_id_int
+    item.supplier_product_code = supplier_product_code.strip()
+    item.current_stock = current_stock_val
+    item.reorder_level = reorder_level_val
+
+    db.commit()
+
+    return RedirectResponse(url="/inventory", status_code=303)
+
+@app.post("/inventory/{item_id}/delete")
+async def delete_inventory_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+):
+    item = (
+        db.query(DBInventoryItem)
+        .filter(DBInventoryItem.id == item_id)
+        .first()
+    )
+    if not item:
+        return RedirectResponse(url="/inventory", status_code=303)
+
+    db.delete(item)
+    db.commit()
+    return RedirectResponse(url="/inventory", status_code=303)
 
 
 @app.get("/suppliers", response_class=HTMLResponse)

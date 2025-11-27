@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Yeast strains</h1>
+
+<table class="table table-striped table-sm">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Lab</th>
+      <th>Type</th>
+      <th>Form</th>
+      <th>Temp (°F)</th>
+      <th>Attenuation</th>
+      <th>Flocculation</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for y in yeasts %}
+    <tr>
+      <td>{{ y.name }}</td>
+      <td>{{ y.lab or "" }}</td>
+      <td>{{ y.type or "" }}</td>
+      <td>{{ y.form or "" }}</td>
+      <td>
+        {% if y.temp_min_f and y.temp_max_f %}
+          {{ "%.1f"|format(y.temp_min_f) }}–{{ "%.1f"|format(y.temp_max_f) }}
+        {% endif %}
+      </td>
+      <td>
+        {% if y.attenuation_pct %}
+          {{ "%.1f"|format(y.attenuation_pct) }}%
+        {% endif %}
+      </td>
+      <td>{{ y.flocculation or "" }}</td>
+      <td style="max-width: 400px; white-space: pre-wrap;">{{ y.notes or "" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -105,6 +105,22 @@ class DBFermentable(Base):
     sg = Column(Float, nullable=True)                 # e.g. 1.037
 
 
+class DBYeast(Base):
+    __tablename__ = "yeasts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    lab = Column(String(100), nullable=True)          # White Labs, Wyeast, etc.
+    type = Column(String(50), nullable=True)          # Ale, Lager, Wheat, Wine...
+    form = Column(String(20), nullable=True)          # Liquid, Dry
+    temp_min_f = Column(Float, nullable=True)         # e.g. 65.0
+    temp_max_f = Column(Float, nullable=True)         # e.g. 70.0
+    attenuation_pct = Column(Float, nullable=True)    # e.g. 75.0
+    flocculation = Column(String(50), nullable=True)  # Low / Medium / High / Very High
+    notes = Column(Text, nullable=True)
+
+
+
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
 
@@ -212,6 +228,7 @@ FERMENTABLE_SEED = [
      "srm": "2-8", "batch_max": "50%", "dp": "60-170", "sg": "1.039"},
 ]
 
+
 def _parse_range(value: str):
     if value is None:
         return None, None
@@ -289,6 +306,260 @@ def seed_fermentables_into_db():
 
 # Call this somewhere near your other seed calls, e.g. after suppliers/inventory seeds:
 seed_fermentables_into_db()
+
+YEAST_SEED = [
+    # --- A few examples from your big HTML table ---
+    {
+        "name": "Frankenyeast",
+        "lab": "Various",
+        "type": "Ale",
+        "form": "Liquid",
+        "temp": "62-75",
+        "attenuation": "75.0%",
+        "flocculation": "Low",
+        "notes": (
+            "A blend of twenty-five yeast strains, most of which are English or Belgian in origin. "
+            "Best for: Anything where interesting yeast character is desired."
+        ),
+    },
+    {
+        "name": "WLP001 California Ale",
+        "lab": "White Labs",
+        "type": "Ale",
+        "form": "Liquid",
+        "temp": "68-73",
+        "attenuation": "76.5%",
+        "flocculation": "High",
+        "notes": (
+            "Very clean flavour, balance and stability. Accentuates hop flavour. Versatile – can be used to make any style ale. "
+            "Best for: American style ales, ambers, pale ales, brown ales, strong ales."
+        ),
+    },
+    {
+        "name": "WLP002 English Ale",
+        "lab": "White Labs",
+        "type": "Ale",
+        "form": "Liquid",
+        "temp": "65-68",
+        "attenuation": "66.5%",
+        "flocculation": "Very High",
+        "notes": (
+            "Classic ESB strain best for English style milds, bitters, porters and English style stouts. "
+            "Leaves a clear beer with some residual sweetness."
+        ),
+    },
+    {
+        "name": "WLP004 Irish Ale",
+        "lab": "White Labs",
+        "type": "Ale",
+        "form": "Liquid",
+        "temp": "65-68",
+        "attenuation": "71.5%",
+        "flocculation": "Medium",
+        "notes": (
+            "Excellent for Irish stouts. Slight hint of diacetyl balanced by a light fruitiness and a slightly dry crispness. "
+            "Best for: Irish ales, stouts, porters, browns, reds and pale ale."
+        ),
+    },
+    {
+        "name": "WLP530 Abbey Ale",
+        "lab": "White Labs",
+        "type": "Ale",
+        "form": "Liquid",
+        "temp": "66-72",
+        "attenuation": "77.5%",
+        "flocculation": "Medium",
+        "notes": (
+            "Used in two of six remaining Trappist breweries. Distinctive plum and fruitiness. Good for high gravity beers. "
+            "Best for: Belgian Trappist ales, spiced ales, tripel, dubbel, grand cru."
+        ),
+    },
+    {
+        "name": "WLP565 Belgian Saison I",
+        "lab": "White Labs",
+        "type": "Ale",
+        "form": "Liquid",
+        "temp": "68-75",
+        "attenuation": "70.0%",
+        "flocculation": "Medium",
+        "notes": (
+            "Saison yeast from Wallonia. Earthy, spicy and peppery notes. Slightly sweet. "
+            "Best for: Saison, Belgian ale, dubbel, tripel."
+        ),
+    },
+    {
+        "name": "WLP300 Hefeweizen Ale",
+        "lab": "White Labs",
+        "type": "Wheat",
+        "form": "Liquid",
+        "temp": "68-72",
+        "attenuation": "74.0%",
+        "flocculation": "Low",
+        "notes": (
+            "Produces the banana and clove nose traditionally associated with German wheat beers. Also produces the desired cloudy look. "
+            "Best for: German-style wheat beers – Weiss, Weizen, Hefeweizen."
+        ),
+    },
+    {
+        "name": "S-04 SafAle English Ale",
+        "lab": "DCL/Fermentis",
+        "type": "Ale",
+        "form": "Dry",
+        "temp": "59-75.2",
+        "attenuation": "73.0%",
+        "flocculation": "Medium",
+        "notes": (
+            "Fast starting, fast fermenting yeast. Quick attenuation helps to produce a clean, crisp, clear ale. "
+            "Best for: General-purpose English ales."
+        ),
+    },
+    {
+        "name": "US-05 Safale American",
+        "lab": "DCL/Fermentis",
+        "type": "Ale",
+        "form": "Dry",
+        "temp": "59-75",
+        "attenuation": "76.5%",
+        "flocculation": "Medium",
+        "notes": (
+            "American ale yeast that produces well-balanced beers with low diacetyl and a very clean, crisp end palate. "
+            "Best for: American ales and other clean-finishing ales."
+        ),
+    },
+    {
+        "name": "T-58 SafBrew Specialty Ale",
+        "lab": "DCL/Fermentis",
+        "type": "Ale",
+        "form": "Dry",
+        "temp": "60-72",
+        "attenuation": "73.0%",
+        "flocculation": "Medium",
+        "notes": (
+            "Estery, somewhat spicy ale yeast. Solid yeast formation at end of fermentation. "
+            "Best for: Complex ales, Belgian-inspired styles."
+        ),
+    },
+    {
+        "name": "S-23 SafLager West European Lager",
+        "lab": "DCL/Fermentis",
+        "type": "Lager",
+        "form": "Dry",
+        "temp": "46-50",
+        "attenuation": "73.5%",
+        "flocculation": "High",
+        "notes": (
+            "German lager yeast strain. Performs well at low temperature. High flocculation and attenuation for a clean German finish. "
+            "Best for: German-style lagers and pilsners."
+        ),
+    },
+    {
+        "name": "W-34/70 Saflager Lager",
+        "lab": "DCL/Fermentis",
+        "type": "Lager",
+        "form": "Dry",
+        "temp": "48-59",
+        "attenuation": "75.0%",
+        "flocculation": "High",
+        "notes": (
+            "Famous strain from Weihenstephan, Germany. Very popular for lagers worldwide. "
+            "Best for: European lagers."
+        ),
+    },
+    {
+        "name": "WB-06 Safbrew Wheat",
+        "lab": "DCL/Fermentis",
+        "type": "Wheat",
+        "form": "Dry",
+        "temp": "59-75",
+        "attenuation": "68.0%",
+        "flocculation": "Medium",
+        "notes": (
+            "Specialty yeast for wheat beer fermentation. Produces subtle estery and phenolic flavour typical of wheat beers. "
+            "Best for: Wheat beers."
+        ),
+    },
+    {
+        "name": "Belle Saison",
+        "lab": "Danstar",
+        "type": "Ale",
+        "form": "Dry",
+        "temp": "63-77",
+        "attenuation": "80.0%",
+        "flocculation": "Low",
+        "notes": (
+            "Highly attenuative saison yeast. "
+            "Best for: Saisons and Belgian farmhouse-style beers."
+        ),
+    },
+    {
+        "name": "Nottingham Ale",
+        "lab": "Danstar",
+        "type": "Ale",
+        "form": "Dry",
+        "temp": "57-70",
+        "attenuation": "75.0%",
+        "flocculation": "High",
+        "notes": (
+            "Highly flocculant, high attenuation. Produces relatively few fruity esters. "
+            "Best for: Clean, neutral British-style ales and pseudo-lagers at low temps."
+        ),
+    },
+]
+
+def _parse_temp_simple(range_str: str):
+    """
+    Parse strings like '65-70' or '59-75.2' into (min_f, max_f).
+    If anything goes wrong, returns (None, None).
+    """
+    if not range_str:
+        return None, None
+    v = range_str.strip().replace("°F", "").replace("F", "")
+    if "-" not in v:
+        try:
+            x = float(v)
+            return x, x
+        except ValueError:
+            return None, None
+    lo, hi = v.split("-", 1)
+    try:
+        return float(lo), float(hi)
+    except ValueError:
+        return None, None
+
+
+def seed_yeasts_into_db():
+    """If yeasts table is empty, seed it from YEAST_SEED."""
+    db = SessionLocal()
+    try:
+        count = db.query(DBYeast).count()
+        if count == 0:
+            for y in YEAST_SEED:
+                t_min, t_max = _parse_temp_simple(y.get("temp", ""))  # in °F
+                attenuation = _parse_pct(y.get("attenuation", ""))
+
+                db_y = DBYeast(
+                    name=y["name"],
+                    lab=y.get("lab"),
+                    type=y.get("type"),
+                    form=y.get("form"),
+                    temp_min_f=t_min,
+                    temp_max_f=t_max,
+                    attenuation_pct=attenuation,
+                    flocculation=y.get("flocculation"),
+                    notes=y.get("notes"),
+                )
+                db.add(db_y)
+            db.commit()
+            print("Seeded yeasts table from YEAST_SEED.")
+    except Exception as e:
+        print("Error seeding yeasts:", e)
+    finally:
+        db.close()
+
+
+# Call once at startup (like the other seeders)
+seed_yeasts_into_db()
+
 
 
 def get_db() -> Session:
@@ -1115,6 +1386,21 @@ async def fermentables_page(request: Request, db: Session = Depends(get_db)):
         },
     )
 
+@app.get("/yeasts", response_class=HTMLResponse)
+async def yeasts_page(request: Request, db: Session = Depends(get_db)):
+    yeasts = (
+        db.query(DBYeast)
+        .order_by(DBYeast.lab, DBYeast.name)
+        .all()
+    )
+    return templates.TemplateResponse(
+        "yeasts.html",
+        {
+            "request": request,
+            "yeasts": yeasts,
+            "current_page": "yeasts",
+        },
+    )
 
 # -------- JSON API: live data --------
 @app.get("/api/vessels")

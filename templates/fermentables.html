@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Fermentables – JaxBrew 2001{% endblock %}
+
+{% block content %}
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <h1 class="h3 mb-1">Fermentables</h1>
+      <p class="text-muted mb-0">
+        Reference table of base malts, speciality grains and adjuncts.
+      </p>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-striped align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Subcategory</th>
+          <th>SRM</th>
+          <th>Batch max %</th>
+          <th>DP</th>
+          <th>SG</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in fermentables %}
+        <tr>
+          <td>{{ f.name }}</td>
+          <td>{{ f.type }}</td>
+          <td>{{ f.subcategory }}</td>
+          <td>
+            {% if f.srm_min is not none and f.srm_max is not none %}
+              {{ '%.1f' % f.srm_min }}{% if f.srm_min != f.srm_max %}–{{ '%.1f' % f.srm_max }}{% endif %}
+            {% endif %}
+          </td>
+          <td>
+            {% if f.batch_max_pct is not none %}
+              {{ '%.1f' % f.batch_max_pct }}%
+            {% endif %}
+          </td>
+          <td>
+            {% if f.dp_min is not none and f.dp_max is not none %}
+              {{ '%.0f' % f.dp_min }}{% if f.dp_min != f.dp_max %}–{{ '%.0f' % f.dp_max }}{% endif %}
+            {% endif %}
+          </td>
+          <td>
+            {% if f.sg is not none %}
+              {{ '%.3f' % f.sg }}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

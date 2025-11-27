@@ -13,6 +13,8 @@ from sqlalchemy import create_engine, Column, Integer, String, Text, Float, Fore
 from sqlalchemy.orm import sessionmaker, declarative_base, Session, relationship
 
 
+
+
 app = FastAPI(title="JaxBrew 2001")
 
 # Static files (even if empty for now)
@@ -40,6 +42,7 @@ DB_URL = os.getenv(
     "JAXBREW_DB_URL",
     "mysql+pymysql://jaxbrew:StrongPass123!@localhost:3306/jaxbrew2001",
 )
+
 
 engine = create_engine(DB_URL, echo=False, future=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
@@ -87,10 +90,205 @@ class DBInventoryItem(Base):
     supplier = relationship("DBSupplier")
 
 
+class DBFermentable(Base):
+    __tablename__ = "fermentables"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    type = Column(String(50), nullable=False)         # Grain / Adjunct / Extract
+    subcategory = Column(String(50), nullable=True)   # Base Malt, Caramel Malt, Sugar, etc.
+    srm_min = Column(Float, nullable=True)
+    srm_max = Column(Float, nullable=True)
+    batch_max_pct = Column(Float, nullable=True)      # e.g. 100.0 = 100%
+    dp_min = Column(Float, nullable=True)             # diastatic power min
+    dp_max = Column(Float, nullable=True)             # diastatic power max
+    sg = Column(Float, nullable=True)                 # e.g. 1.037
+
+
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
 
+FERMENTABLE_SEED = [
+    # name, type, subcategory, SRM, Batch Max, Diastatic Power, SG
+    {"name": "2-Row Pale Malt", "type": "Grain", "subcategory": "Base Malt",
+     "srm": "1.5-3.5", "batch_max": "100%", "dp": "50-150", "sg": "1.037"},
+    {"name": "6-Row Pale Malt", "type": "Grain", "subcategory": "Base Malt",
+     "srm": "2", "batch_max": "100%", "dp": "160", "sg": "1.035"},
+    {"name": "Acidulated Malt", "type": "Grain", "subcategory": "Base Malt",
+     "srm": "1.5-3", "batch_max": "10%", "dp": "0", "sg": "1.027"},
+    {"name": "Amber Malt", "type": "Grain", "subcategory": "Caramel Malt",
+     "srm": "22-30", "batch_max": "20%", "dp": "0", "sg": "1.032"},
+    {"name": "Aromatic Malt", "type": "Grain", "subcategory": "Roasted Malt",
+     "srm": "20-30", "batch_max": "10%", "dp": "20", "sg": "1.035"},
+    {"name": "Biscuit Malt", "type": "Grain", "subcategory": "Roasted Malt",
+     "srm": "28-30", "batch_max": "10%", "dp": "0", "sg": "1.035"},
+    {"name": "Black (Patent) Malt", "type": "Grain", "subcategory": "Roasted Malt",
+     "srm": "400-500", "batch_max": "10%", "dp": "0", "sg": "1.027"},
+    {"name": "Black Barley", "type": "Grain", "subcategory": "Roasted Malt",
+     "srm": "400-530", "batch_max": "10%", "dp": "0", "sg": "1.027"},
+    {"name": "Brown Malt", "type": "Grain", "subcategory": "Roasted Malt",
+     "srm": "65", "batch_max": "10%", "dp": "0", "sg": "1.034"},
+    {"name": "Cara Ruby", "type": "Grain", "subcategory": "Caramel Malt",
+     "srm": "17-22", "batch_max": "25%", "dp": "-", "sg": "1.033"},
+    {"name": "Carafoam", "type": "Grain", "subcategory": "Caramel Malt",
+     "srm": "1-2", "batch_max": "40%", "dp": "15-48", "sg": "1.035"},
+    {"name": "Caramel/Crystal Malt", "type": "Grain", "subcategory": "Caramel Malt",
+     "srm": "10-110", "batch_max": "15%", "dp": "0", "sg": "1.035"},
+    {"name": "Carapils (Dextrin)", "type": "Grain", "subcategory": "Caramel Malt",
+     "srm": "1-2", "batch_max": "5%", "dp": "0", "sg": "1.033"},
+    {"name": "Chit Malt", "type": "Grain", "subcategory": "Raw Malt",
+     "srm": "1-2", "batch_max": "15%", "dp": "75", "sg": "1.030"},
+    {"name": "Chocolate Malt", "type": "Grain", "subcategory": "Roasted Malt",
+     "srm": "350", "batch_max": "10%", "dp": "0", "sg": "1.025"},
+    {"name": "Dextrose (Corn Sugar)", "type": "Adjunct", "subcategory": "Sugar",
+     "srm": "0", "batch_max": "5%", "dp": "0", "sg": "1.041"},
+    {"name": "Dry Malt Extract (DME)", "type": "Grain", "subcategory": "Extract",
+     "srm": "3-18", "batch_max": "100%", "dp": "0", "sg": "1.044"},
+    {"name": "Flaked Barley", "type": "Grain", "subcategory": "Raw Malt",
+     "srm": "2", "batch_max": "20%", "dp": "0", "sg": "1.032"},
+    {"name": "Flaked Corn (Maize)", "type": "Grain", "subcategory": "Raw Malt",
+     "srm": "1", "batch_max": "10%", "dp": "0", "sg": "1.040"},
+    {"name": "Flaked Oats", "type": "Grain", "subcategory": "Raw Malt",
+     "srm": "1", "batch_max": "30%", "dp": "0", "sg": "1.033"},
+    {"name": "Flaked Rice", "type": "Grain", "subcategory": "Raw Malt",
+     "srm": "1", "batch_max": "40%", "dp": "0", "sg": "1.040"},
+    {"name": "Flaked Rye", "type": "Grain", "subcategory": "Raw Malt",
+     "srm": "2", "batch_max": "10%", "dp": "0", "sg": "1.036"},
+    {"name": "Flaked Spelt", "type": "Grain", "subcategory": "Raw Malt",
+     "srm": "1-2", "batch_max": "60%", "dp": "0", "sg": "1.032"},
+    {"name": "Flaked Wheat", "type": "Grain", "subcategory": "Raw Malt",
+     "srm": "2", "batch_max": "40%", "dp": "0", "sg": "1.034"},
+    {"name": "Golden Promise", "type": "Grain", "subcategory": "Base Malt",
+     "srm": "2-3", "batch_max": "100%", "dp": "75", "sg": "1.037"},
+    {"name": "Grits", "type": "Grain", "subcategory": "Raw Malt",
+     "srm": "1", "batch_max": "10%", "dp": "0", "sg": "1.037"},
+    {"name": "Honey", "type": "Adjunct", "subcategory": "Sugar",
+     "srm": "1", "batch_max": "100%", "dp": "0", "sg": "1.035"},
+    {"name": "Honey Malt", "type": "Grain", "subcategory": "Caramel Malt",
+     "srm": "25", "batch_max": "0%", "dp": "0", "sg": "1.035"},
+    {"name": "Lactose (Milk Sugar)", "type": "Adjunct", "subcategory": "Sugar",
+     "srm": "0", "batch_max": "10%", "dp": "0", "sg": "1.041"},
+    {"name": "Liquid Malt Extract (LME)", "type": "Grain", "subcategory": "Extract",
+     "srm": "3-18", "batch_max": "100%", "dp": "0", "sg": "1.037"},
+    {"name": "Malted Oats", "type": "Grain", "subcategory": "Roasted Malt",
+     "srm": "2-2.5", "batch_max": "10%", "dp": "0", "sg": "1.030"},
+    {"name": "Maltodextrin", "type": "Adjunct", "subcategory": "Sugar",
+     "srm": "0", "batch_max": "5%", "dp": "0", "sg": "1.040"},
+    {"name": "Maple Syrup", "type": "Adjunct", "subcategory": "Sugar",
+     "srm": "35", "batch_max": "10%", "dp": "0", "sg": "1.030"},
+    {"name": "Maris Otter", "type": "Grain", "subcategory": "Base Malt",
+     "srm": "2.5", "batch_max": "100%", "dp": "75", "sg": "1.038"},
+    {"name": "Mild Malt", "type": "Grain", "subcategory": "Base Malt",
+     "srm": "4", "batch_max": "100%", "dp": "50-65", "sg": "1.037"},
+    {"name": "Molasses", "type": "Adjunct", "subcategory": "Sugar",
+     "srm": "80", "batch_max": "5%", "dp": "0", "sg": "1.036"},
+    {"name": "Munich Malt", "type": "Grain", "subcategory": "Base Malt",
+     "srm": "10-20", "batch_max": "80%", "dp": "25-70", "sg": "1.038"},
+    {"name": "Peat Smoked Malt", "type": "Grain", "subcategory": "Base Malt",
+     "srm": "3", "batch_max": "10%", "dp": "120", "sg": "1.038"},
+    {"name": "Pilsner Malt", "type": "Grain", "subcategory": "Base Malt",
+     "srm": "1.5-2", "batch_max": "100%", "dp": "75-140", "sg": "1.037"},
+    {"name": "Rice Hulls", "type": "Grain", "subcategory": "Raw Malt",
+     "srm": "0", "batch_max": "5%", "dp": "0", "sg": "0"},
+    {"name": "Roasted Barley", "type": "Grain", "subcategory": "Roasted Malt",
+     "srm": "300-500", "batch_max": "10%", "dp": "0", "sg": "1.030"},
+    {"name": "Roasted Wheat", "type": "Grain", "subcategory": "Roasted Malt",
+     "srm": "425", "batch_max": "10%", "dp": "120", "sg": "1.034"},
+    {"name": "Rye Malt", "type": "Grain", "subcategory": "Base Malt",
+     "srm": "3-5", "batch_max": "15%", "dp": "105", "sg": "1.038"},
+    {"name": "Smoked Malt", "type": "Grain", "subcategory": "Base Malt",
+     "srm": "5", "batch_max": "100%", "dp": "90-140", "sg": "1.037"},
+    {"name": "Special Roast", "type": "Grain", "subcategory": "Roasted Malt",
+     "srm": "40-50", "batch_max": "10%", "dp": "0", "sg": "1.033"},
+    {"name": "Table Sugar (Sucrose)", "type": "Adjunct", "subcategory": "Sugar",
+     "srm": "1", "batch_max": "10%", "dp": "0", "sg": "1.046"},
+    {"name": "Torrified Wheat", "type": "Grain", "subcategory": "Raw Malt",
+     "srm": "2", "batch_max": "40%", "dp": "0", "sg": "1.037"},
+    {"name": "Turbinado", "type": "Adjunct", "subcategory": "Sugar",
+     "srm": "10", "batch_max": "10%", "dp": "0", "sg": "1.044"},
+    {"name": "Vienna Malt", "type": "Grain", "subcategory": "Base Malt",
+     "srm": "4", "batch_max": "90%", "dp": "50-80", "sg": "1.037"},
+    {"name": "Wheat Malt", "type": "Grain", "subcategory": "Base Malt",
+     "srm": "2-8", "batch_max": "50%", "dp": "60-170", "sg": "1.039"},
+]
 
+def _parse_range(value: str):
+    if value is None:
+        return None, None
+    v = value.strip()
+    if not v or v == "-":
+        return None, None
+    if "-" in v:
+        a, b = v.split("-", 1)
+        try:
+            return float(a), float(b)
+        except ValueError:
+            return None, None
+    try:
+        x = float(v)
+        return x, x
+    except ValueError:
+        return None, None
+
+
+def _parse_pct(value: str):
+    if value is None:
+        return None
+    v = value.strip().replace("%", "")
+    if not v:
+        return None
+    try:
+        return float(v)
+    except ValueError:
+        return None
+
+
+def _parse_float(value: str):
+    if value is None:
+        return None
+    v = value.strip()
+    if not v:
+        return None
+    try:
+        return float(v)
+    except ValueError:
+        return None
+
+
+def seed_fermentables_into_db():
+    """If fermentables table is empty, seed it from FERMENTABLE_SEED."""
+    db = SessionLocal()
+    try:
+        count = db.query(DBFermentable).count()
+        if count == 0:
+            for f in FERMENTABLE_SEED:
+                srm_min, srm_max = _parse_range(f["srm"])
+                dp_min, dp_max = _parse_range(f["dp"])
+                batch_max = _parse_pct(f["batch_max"])
+                sg_val = _parse_float(f["sg"])
+
+                db_f = DBFermentable(
+                    name=f["name"],
+                    type=f["type"],
+                    subcategory=f["subcategory"],
+                    srm_min=srm_min,
+                    srm_max=srm_max,
+                    batch_max_pct=batch_max,
+                    dp_min=dp_min,
+                    dp_max=dp_max,
+                    sg=sg_val,
+                )
+                db.add(db_f)
+            db.commit()
+            print("Seeded fermentables table from FERMENTABLE_SEED.")
+    except Exception as e:
+        print("Error seeding fermentables:", e)
+    finally:
+        db.close()
+
+
+# Call this somewhere near your other seed calls, e.g. after suppliers/inventory seeds:
+seed_fermentables_into_db()
 
 
 def get_db() -> Session:
@@ -457,7 +655,6 @@ class ToleranceUpdate(BaseModel):
     toleranceC: float
 
 
-# -------- Routes: pages --------
 # -------- Routes: pages --------
 @app.get("/", response_class=HTMLResponse)
 async def welcome(request: Request):
@@ -901,6 +1098,22 @@ async def delete_customer(
     db.delete(customer)
     db.commit()
     return RedirectResponse(url="/customers", status_code=303)
+
+@app.get("/fermentables", response_class=HTMLResponse)
+async def fermentables_page(request: Request, db: Session = Depends(get_db)):
+    ferments = (
+        db.query(DBFermentable)
+        .order_by(DBFermentable.name)
+        .all()
+    )
+    return templates.TemplateResponse(
+        "fermentables.html",
+        {
+            "request": request,
+            "fermentables": ferments,
+            "current_page": "fermentables",
+        },
+    )
 
 
 # -------- JSON API: live data --------

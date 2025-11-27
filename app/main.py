@@ -9,8 +9,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from sqlalchemy import create_engine, Column, Integer, String, Text
-from sqlalchemy.orm import sessionmaker, declarative_base, Session
+from sqlalchemy import create_engine, Column, Integer, String, Text, Float, ForeignKey
+from sqlalchemy.orm import sessionmaker, declarative_base, Session, relationship
+
 
 app = FastAPI(title="JaxBrew 2001")
 
@@ -70,8 +71,25 @@ class DBSupplier(Base):
     notes = Column(Text, nullable=True)
 
 
+class DBInventoryItem(Base):
+    __tablename__ = "inventory_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, nullable=False)
+    name = Column(String(200), nullable=False)
+    category = Column(String(50), nullable=False)
+    unit = Column(String(20), nullable=False)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
+    supplier_product_code = Column(String(100), nullable=True)
+    current_stock = Column(Float, nullable=False, default=0.0)
+    reorder_level = Column(Float, nullable=False, default=0.0)
+
+    supplier = relationship("DBSupplier")
+
+
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
+
 
 
 
@@ -319,63 +337,97 @@ def get_supplier(supplier_id: str):
     return None
 
 
-INVENTORY = [
+INVENTORY_SEED = [
     {
-        "id": new_guid(),
         "code": "MALT-MO-25KG",
         "name": "Maris Otter Pale Malt 25kg",
         "category": "malt",
         "unit": "kg",
-        "preferred_supplier_id": SUPPLIERS[0]["id"],
+        "supplier_code": "SUP-BREWSHOP",
         "supplier_product_code": "MO-25",
         "current_stock": 50.0,   # kg
         "reorder_level": 25.0,   # kg
     },
     {
-        "id": new_guid(),
         "code": "HOP-CITRA-100G",
         "name": "Citra 13% AA 100g",
         "category": "hop",
         "unit": "g",
-        "preferred_supplier_id": SUPPLIERS[1]["id"],
+        "supplier_code": "SUP-YEASTHOPS",
         "supplier_product_code": "CIT-100",
         "current_stock": 400.0,  # g
         "reorder_level": 200.0,  # g
     },
     {
-        "id": new_guid(),
         "code": "YEAST-US05",
         "name": "Safale US-05",
         "category": "yeast",
         "unit": "packet",
-        "preferred_supplier_id": SUPPLIERS[1]["id"],
+        "supplier_code": "SUP-YEASTHOPS",
         "supplier_product_code": "US-05",
         "current_stock": 10.0,   # packets
         "reorder_level": 5.0,
     },
     {
-        "id": new_guid(),
         "code": "CLEAN-STARSAN-1L",
         "name": "Starsan 1L",
         "category": "cleaning",
         "unit": "L",
-        "preferred_supplier_id": SUPPLIERS[0]["id"],
+        "supplier_code": "SUP-BREWSHOP",
         "supplier_product_code": "STAR-1L",
         "current_stock": 1.5,    # L
         "reorder_level": 0.5,
     },
     {
-        "id": new_guid(),
         "code": "WATER-CAMPDEN",
         "name": "Campden Tablets (50)",
         "category": "water_treatment",
         "unit": "tablet",
-        "preferred_supplier_id": SUPPLIERS[0]["id"],
+        "supplier_code": "SUP-BREWSHOP",
         "supplier_product_code": "CAMP-50",
         "current_stock": 40.0,   # tablets
         "reorder_level": 10.0,
     },
 ]
+
+def seed_inventory_into_db():
+    """If inventory_items table is empty, seed it from INVENTORY_SEED."""
+    db = SessionLocal()
+    try:
+        count = db.query(DBInventoryItem).count()
+        if count == 0:
+            for item in INVENTORY_SEED:
+                supplier_id = None
+                if item.get("supplier_code"):
+                    supplier = (
+                        db.query(DBSupplier)
+                        .filter(DBSupplier.code == item["supplier_code"])
+                        .first()
+                    )
+                    if supplier:
+                        supplier_id = supplier.id
+
+                db_item = DBInventoryItem(
+                    code=item["code"],
+                    name=item["name"],
+                    category=item["category"],
+                    unit=item["unit"],
+                    supplier_id=supplier_id,
+                    supplier_product_code=item["supplier_product_code"],
+                    current_stock=item["current_stock"],
+                    reorder_level=item["reorder_level"],
+                )
+                db.add(db_item)
+            db.commit()
+            print("Seeded inventory_items table from INVENTORY_SEED.")
+    except Exception as e:
+        print("Error seeding inventory:", e)
+    finally:
+        db.close()
+
+
+# Run seeding once at startup
+seed_inventory_into_db()
 
 
 # -------- Pydantic models for API --------
@@ -442,14 +494,27 @@ async def vessel_detail(code: str, request: Request):
 
 
 @app.get("/inventory", response_class=HTMLResponse)
-async def inventory_page(request: Request):
+async def inventory_page(request: Request, db: Session = Depends(get_db)):
+    items = (
+        db.query(DBInventoryItem)
+        .order_by(DBInventoryItem.category, DBInventoryItem.name)
+        .all()
+    )
+
     products_for_view = []
-    for p in INVENTORY:
-        supplier = get_supplier(p["preferred_supplier_id"])
+    for item in items:
+        supplier_name = item.supplier.name if item.supplier else "Unknown"
         products_for_view.append(
             {
-                **p,
-                "preferred_supplier_name": supplier["name"] if supplier else "Unknown",
+                "id": item.id,
+                "code": item.code,
+                "name": item.name,
+                "category": item.category,
+                "unit": item.unit,
+                "current_stock": item.current_stock,
+                "reorder_level": item.reorder_level,
+                "preferred_supplier_name": supplier_name,
+                "supplier_product_code": item.supplier_product_code,
             }
         )
 
@@ -461,6 +526,7 @@ async def inventory_page(request: Request):
             "current_page": "inventory",
         },
     )
+
 
 @app.get("/suppliers", response_class=HTMLResponse)
 async def suppliers_page(request: Request, db: Session = Depends(get_db)):

@@ -119,6 +119,14 @@ class DBYeast(Base):
     flocculation = Column(String(50), nullable=True)  # Low / Medium / High / Very High
     notes = Column(Text, nullable=True)
 
+class DBHop(Base):
+    __tablename__ = "hops"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), unique=True, index=True, nullable=False)
+    origin = Column(String(100), nullable=True)
+    alpha_acid = Column(Float, nullable=True)   # stored as % AA
+    hop_type = Column(String(50), nullable=True)  # Aroma / Bittering / Both
 
 
 # Create tables if they don't exist
@@ -228,6 +236,74 @@ FERMENTABLE_SEED = [
      "srm": "2-8", "batch_max": "50%", "dp": "60-170", "sg": "1.039"},
 ]
 
+HOP_SEED = [
+    {"name": "Admiral",               "origin": "UK",          "alpha_acid": 14.8, "hop_type": "Bittering"},
+    {"name": "Ahtanum",               "origin": "US",          "alpha_acid": 6.0,  "hop_type": "Aroma"},
+    {"name": "Amarillo Gold",         "origin": "US",          "alpha_acid": 8.5,  "hop_type": "Aroma"},
+    {"name": "Aquila",                "origin": "US",          "alpha_acid": 6.5,  "hop_type": "Aroma"},
+    {"name": "Banner",                "origin": "US",          "alpha_acid": 10.0, "hop_type": "Bittering"},
+    {"name": "Bramling Cross",        "origin": "UK",          "alpha_acid": 6.0,  "hop_type": "Aroma"},
+    {"name": "Brewers Gold",          "origin": "UK",          "alpha_acid": 8.0,  "hop_type": "Bittering"},
+    {"name": "Bullion",               "origin": "UK",          "alpha_acid": 8.0,  "hop_type": "Bittering"},
+    {"name": "Cascade",               "origin": "US",          "alpha_acid": 5.5,  "hop_type": "Both"},
+    {"name": "Centennial",            "origin": "US",          "alpha_acid": 10.0, "hop_type": "Bittering"},
+    {"name": "Challenger",            "origin": "UK",          "alpha_acid": 7.5,  "hop_type": "Aroma"},
+    {"name": "Chinook",               "origin": "US",          "alpha_acid": 13.0, "hop_type": "Bittering"},
+    {"name": "Cluster",               "origin": "US",          "alpha_acid": 7.0,  "hop_type": "Bittering"},
+    {"name": "Columbia",              "origin": "UK",          "alpha_acid": 5.5,  "hop_type": "Bittering"},
+    {"name": "Columbus (Tomahawk)",   "origin": "US",          "alpha_acid": 14.0, "hop_type": "Bittering"},
+    {"name": "Comet",                 "origin": "US",          "alpha_acid": 9.5,  "hop_type": "Bittering"},
+    {"name": "Crystal",               "origin": "US",          "alpha_acid": 3.5,  "hop_type": "Aroma"},
+    {"name": "Eroica",                "origin": "US",          "alpha_acid": 13.0, "hop_type": "Bittering"},
+    {"name": "First Gold",            "origin": "UK",          "alpha_acid": 7.5,  "hop_type": "Both"},
+    {"name": "Fuggles",               "origin": "UK",          "alpha_acid": 4.5,  "hop_type": "Aroma"},
+    {"name": "Galena",                "origin": "US",          "alpha_acid": 13.0, "hop_type": "Bittering"},
+    {"name": "Glacier",               "origin": "US",          "alpha_acid": 5.6,  "hop_type": "Aroma"},
+    {"name": "Goldings, B. C.",       "origin": "Canada",      "alpha_acid": 5.0,  "hop_type": "Aroma"},
+    {"name": "Goldings, East Kent (EK)", "origin": "UK",       "alpha_acid": 5.0,  "hop_type": "Aroma"},
+    {"name": "Green Bullet",          "origin": "New Zealand", "alpha_acid": 13.5, "hop_type": "Bittering"},
+    {"name": "Hallertauer",           "origin": "Germany",     "alpha_acid": 4.8,  "hop_type": "Aroma"},
+    {"name": "Hallertauer, Hersbrucker", "origin": "Germany",  "alpha_acid": 4.0,  "hop_type": "Aroma"},
+    {"name": "Hallertauer, Mittelfrueh", "origin": "Germany",  "alpha_acid": 4.0,  "hop_type": "Aroma"},
+    {"name": "Hallertauer, New Zealand", "origin": "New Zealand", "alpha_acid": 8.5, "hop_type": "Both"},
+    {"name": "Herald",                "origin": "UK",          "alpha_acid": 12.0, "hop_type": "Bittering"},
+    {"name": "Horizon",               "origin": "US",          "alpha_acid": 12.0, "hop_type": "Bittering"},
+    {"name": "Liberty",               "origin": "US",          "alpha_acid": 4.3,  "hop_type": "Aroma"},
+    {"name": "Lublin",                "origin": "Poland",      "alpha_acid": 5.0,  "hop_type": "Bittering"},
+    {"name": "Magnum",                "origin": "Germany",     "alpha_acid": 14.0, "hop_type": "Bittering"},
+    {"name": "Mt. Hood",              "origin": "US",          "alpha_acid": 6.0,  "hop_type": "Aroma"},
+    {"name": "Northdown",             "origin": "UK",          "alpha_acid": 8.5,  "hop_type": "Both"},
+    {"name": "Northern Brewer",       "origin": "Germany",     "alpha_acid": 8.5,  "hop_type": "Both"},
+    {"name": "Nugget",                "origin": "US",          "alpha_acid": 13.0, "hop_type": "Bittering"},
+    {"name": "Orion",                 "origin": "Germany",     "alpha_acid": 7.3,  "hop_type": "Both"},
+    {"name": "Pacific Gem",           "origin": "New Zealand", "alpha_acid": 15.0, "hop_type": "Bittering"},
+    {"name": "Pearle",                "origin": "Germany",     "alpha_acid": 8.0,  "hop_type": "Bittering"},
+    {"name": "Phoenix",               "origin": "UK",          "alpha_acid": 8.0,  "hop_type": "Bittering"},
+    {"name": "Pilgrim",               "origin": "UK",          "alpha_acid": 11.5, "hop_type": "Bittering"},
+    {"name": "Pioneer",               "origin": "UK",          "alpha_acid": 9.0,  "hop_type": "Both"},
+    {"name": "Pride of Ringwood",     "origin": "Australia",   "alpha_acid": 9.0,  "hop_type": "Bittering"},
+    {"name": "Progress",              "origin": "UK",          "alpha_acid": 6.3,  "hop_type": "Aroma"},
+    {"name": "Saaz",                  "origin": "Czech Rep",   "alpha_acid": 4.0,  "hop_type": "Aroma"},
+    {"name": "Santiam",               "origin": "US",          "alpha_acid": 6.0,  "hop_type": "Aroma"},
+    {"name": "Select Spalt",          "origin": "Germany",     "alpha_acid": 4.8,  "hop_type": "Aroma"},
+    {"name": "Southern Cross",        "origin": "New Zealand", "alpha_acid": 13.0, "hop_type": "Both"},
+    {"name": "Spalter",               "origin": "Germany",     "alpha_acid": 4.5,  "hop_type": "Aroma"},
+    {"name": "Sterling",              "origin": "US",          "alpha_acid": 7.5,  "hop_type": "Both"},
+    {"name": "Sticklebract",          "origin": "New Zealand", "alpha_acid": 13.5, "hop_type": "Both"},
+    {"name": "Strisselspalt",         "origin": "France",      "alpha_acid": 4.0,  "hop_type": "Aroma"},
+    {"name": "Styrian Goldings",      "origin": "Slovenia",    "alpha_acid": 5.4,  "hop_type": "Aroma"},
+    {"name": "Sun",                   "origin": "US",          "alpha_acid": 14.0, "hop_type": "Bittering"},
+    {"name": "Super Alpha",           "origin": "New Zealand", "alpha_acid": 13.0, "hop_type": "Bittering"},
+    {"name": "Target",                "origin": "UK",          "alpha_acid": 11.0, "hop_type": "Bittering"},
+    {"name": "Tettnang",              "origin": "Germany",     "alpha_acid": 4.5,  "hop_type": "Aroma"},
+    {"name": "Tradition",             "origin": "Germany",     "alpha_acid": 6.0,  "hop_type": "Bittering"},
+    {"name": "Ultra",                 "origin": "US",          "alpha_acid": 3.0,  "hop_type": "Aroma"},
+    {"name": "Vanguard",              "origin": "US",          "alpha_acid": 5.5,  "hop_type": "Aroma"},
+    {"name": "Warrior",               "origin": "US",          "alpha_acid": 15.0, "hop_type": "Both"},
+    {"name": "Whitbread Golding Var (WGV)", "origin": "UK",    "alpha_acid": 6.0,  "hop_type": "Aroma"},
+    {"name": "Willamette",            "origin": "US",          "alpha_acid": 5.5,  "hop_type": "Aroma"},
+    {"name": "Zeus",                  "origin": "US",          "alpha_acid": 14.0, "hop_type": "Bittering"},
+]
 
 def _parse_range(value: str):
     if value is None:
@@ -560,6 +636,21 @@ def seed_yeasts_into_db():
 # Call once at startup (like the other seeders)
 seed_yeasts_into_db()
 
+def seed_hops_into_db():
+    """If hops table is empty, seed it from HOP_SEED."""
+    db = SessionLocal()
+    try:
+        if db.query(DBHop).count() == 0:
+            for hop in HOP_SEED:
+                db.add(DBHop(**hop))
+            db.commit()
+            print("Seeded hops table from HOP_SEED.")
+    except Exception as e:
+        print("Error seeding hops:", e)
+    finally:
+        db.close()
+
+seed_hops_into_db()
 
 
 def get_db() -> Session:
@@ -1401,6 +1492,22 @@ async def yeasts_page(request: Request, db: Session = Depends(get_db)):
             "current_page": "yeasts",
         },
     )
+
+@app.get("/hops", response_class=HTMLResponse)
+async def hops_page(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    hops = db.query(DBHop).order_by(DBHop.name).all()
+    return templates.TemplateResponse(
+        "hops.html",
+        {
+            "request": request,
+            "hops": hops,
+            "current_page": "hops",
+        },
+    )
+
 
 # -------- JSON API: live data --------
 @app.get("/api/vessels")

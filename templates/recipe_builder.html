@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h1>Recipe Builder – Hops & IBUs</h1>
+    <h1>Recipe Builder – Fermentables, Hops & IBUs</h1>
 
     <form method="post" action="/recipe-builder" class="mt-3">
         <div class="row mb-3">
@@ -22,6 +22,88 @@
                        name="original_gravity"
                        placeholder="e.g. 1.050"
                        value="{{ form.original_gravity or '1.050' }}">
+                <div class="form-text">
+                    Will be auto-filled from fermentables estimate if you build a grain bill.
+                </div>
+            </div>
+        </div>
+
+        <!-- Fermentables / OG / Colour -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="brewhouse-eff" class="form-label">Brewhouse efficiency (%)</label>
+                        <input type="number" step="1" class="form-control" id="brewhouse-eff" value="75">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label d-block">OG estimate</label>
+                        <span id="og-estimate" class="fw-bold">1.000</span>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label d-block">Colour (SRM / EBC)</label>
+                        <span id="srm-estimate" class="fw-bold">0.0</span>
+                        <span class="text-muted">SRM</span>
+                        <span class="ms-2 fw-bold" id="ebc-estimate">0.0</span>
+                        <span class="text-muted">EBC</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">
+                <strong>Fermentables</strong>
+            </div>
+            <div class="card-body">
+                <!-- Add fermentable row -->
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-md-6">
+                        <label for="fermentable-select" class="form-label">Fermentable</label>
+                        <select id="fermentable-select" class="form-select">
+                            <option value="">-- choose fermentable --</option>
+                            {% for f in fermentables %}
+                                <option
+                                  value="{{ f.id }}"
+                                  data-name="{{ f.name }}"
+                                  data-sg="{{ f.sg or '' }}"
+                                  data-srm-min="{{ f.srm_min or '' }}"
+                                  data-srm-max="{{ f.srm_max or '' }}"
+                                >
+                                    {{ f.name }}
+                                    {% if f.sg %} ({{ "%.3f"|format(f.sg) }}){% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="fermentable-weight-input" class="form-label">Weight (kg)</label>
+                        <input type="number" step="0.01" min="0" id="fermentable-weight-input" class="form-control" value="1.00">
+                    </div>
+                    <div class="col-md-3">
+                        <button type="button" id="add-fermentable-btn" class="btn btn-primary w-100">
+                            Add fermentable
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Table of fermentables in this recipe -->
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle" id="fermentables-table">
+                        <thead>
+                            <tr>
+                                <th>Fermentable</th>
+                                <th class="text-end">Weight (kg)</th>
+                                <th class="text-end">Colour (SRM)</th>
+                                <th class="text-end">Potential SG</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="fermentables-body">
+                            <!-- rows added by JS -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -177,4 +259,151 @@
         {% endif %}
     {% endif %}
 </div>
+
+<script>
+  function calcAverageSRM(optionEl) {
+    const srmMin = parseFloat(optionEl.dataset.srmMin || "0");
+    const srmMax = parseFloat(optionEl.dataset.srmMax || "0");
+    if (srmMin && srmMax) return (srmMin + srmMax) / 2;
+    if (srmMin) return srmMin;
+    if (srmMax) return srmMax;
+    return 0;
+  }
+
+  function recalcFermentables() {
+    const batchInputEl = document.getElementById("batch_volume_l");
+    const batchVolumeL = parseFloat(batchInputEl ? batchInputEl.value : "0") || 0;
+    const effPct = parseFloat(document.getElementById("brewhouse-eff").value || "75") || 75;
+    const eff = effPct / 100.0;
+
+    const tbody = document.getElementById("fermentables-body");
+    const rows = tbody.querySelectorAll("tr");
+
+    if (!batchVolumeL || rows.length === 0) {
+      document.getElementById("og-estimate").textContent = "1.000";
+      document.getElementById("srm-estimate").textContent = "0.0";
+      document.getElementById("ebc-estimate").textContent = "0.0";
+
+      const ogInput = document.getElementById("original_gravity");
+      if (ogInput) {
+        ogInput.value = ogInput.value || "1.050";
+      }
+      return;
+    }
+
+    let totalPoints = 0;  // for OG
+    let totalMCU = 0;     // for colour
+
+    const volumeGal = batchVolumeL / 3.78541;
+
+    rows.forEach(row => {
+      const weightInput = row.querySelector(".fermentable-weight");
+      const weightKg = parseFloat(weightInput.value) || 0;
+      const sg = parseFloat(row.dataset.sg || "0");
+      const srm = parseFloat(row.dataset.srm || "0");
+
+      if (!weightKg || !sg) return;
+
+      // --- Gravity points ---
+      const ppg = (sg - 1.0) * 1000;           // e.g. 1.037 -> 37 points per lb/gal
+      const weightLb = weightKg / 0.453592;
+      const points = (ppg * weightLb * eff) / volumeGal;  // overall gravity points contribution
+      totalPoints += points;
+
+      // --- Colour (MCU) ---
+      if (srm > 0) {
+        const mcu = (weightLb * srm) / volumeGal;
+        totalMCU += mcu;
+      }
+    });
+
+    // OG
+    let og = 1.000;
+    if (totalPoints > 0) {
+      og = 1 + totalPoints / 1000.0;
+    }
+    const ogText = og.toFixed(3);
+    document.getElementById("og-estimate").textContent = ogText;
+
+    // also sync into the original_gravity input so your IBU calc can use it
+    const ogInput = document.getElementById("original_gravity");
+    if (ogInput) {
+      ogInput.value = ogText;
+    }
+
+    // Colour via Morey formula: SRM = 1.4922 * MCU^0.6859
+    let srmEst = 0;
+    if (totalMCU > 0) {
+      srmEst = 1.4922 * Math.pow(totalMCU, 0.6859);
+    }
+    document.getElementById("srm-estimate").textContent = srmEst.toFixed(1);
+    document.getElementById("ebc-estimate").textContent = (srmEst * 1.97).toFixed(1);
+  }
+
+  function wireFermentablesUI() {
+    const addBtn = document.getElementById("add-fermentable-btn");
+    const select = document.getElementById("fermentable-select");
+    const weightInput = document.getElementById("fermentable-weight-input");
+    const tbody = document.getElementById("fermentables-body");
+
+    if (!addBtn || !select || !weightInput || !tbody) return;
+
+    addBtn.addEventListener("click", () => {
+      const option = select.selectedOptions[0];
+      if (!option || !option.value) return;
+
+      const name = option.dataset.name || option.textContent.trim();
+      const sg = parseFloat(option.dataset.sg || "0");
+      const srmAvg = calcAverageSRM(option);
+      const weightKg = parseFloat(weightInput.value) || 0;
+
+      if (!weightKg || !sg) {
+        return;
+      }
+
+      const tr = document.createElement("tr");
+      tr.dataset.sg = sg.toString();
+      tr.dataset.srm = srmAvg.toString();
+
+      tr.innerHTML = `
+        <td>${name}</td>
+        <td class="text-end">
+          <input type="number" step="0.01" min="0"
+                 class="form-control form-control-sm fermentable-weight"
+                 value="${weightKg.toFixed(2)}">
+        </td>
+        <td class="text-end">${srmAvg ? srmAvg.toFixed(1) : "-"}</td>
+        <td class="text-end">${sg ? sg.toFixed(3) : "-"}</td>
+        <td class="text-end">
+          <button type="button" class="btn btn-sm btn-outline-danger fermentable-remove">
+            &times;
+          </button>
+        </td>
+      `;
+
+      tbody.appendChild(tr);
+
+      // Recalculate when weight is edited
+      tr.querySelector(".fermentable-weight").addEventListener("input", recalcFermentables);
+      tr.querySelector(".fermentable-remove").addEventListener("click", () => {
+        tr.remove();
+        recalcFermentables();
+      });
+
+      recalcFermentables();
+    });
+
+    // Batch / efficiency changes
+    const batchInput = document.getElementById("batch_volume_l");
+    const effInput = document.getElementById("brewhouse-eff");
+    if (batchInput) batchInput.addEventListener("input", recalcFermentables);
+    if (effInput) effInput.addEventListener("input", recalcFermentables);
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    wireFermentablesUI();
+    recalcFermentables();
+  });
+</script>
+
 {% endblock %}

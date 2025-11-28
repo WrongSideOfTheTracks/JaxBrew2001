@@ -1547,22 +1547,21 @@ async def hops_page(
     )
 
 @app.get("/recipe-builder", response_class=HTMLResponse)
-async def recipe_builder_page(
-    request: Request,
-    db: Session = Depends(get_db),
-):
+async def recipe_builder_get(request: Request, db: Session = Depends(get_db)):
     hops = db.query(DBHop).order_by(DBHop.name).all()
-    context = {
-        "request": request,
-        "hops": hops,
-        "result": None,
-        "form": {
-            "batch_volume_l": "20",
-            "original_gravity": "1.050",
+    fermentables = db.query(DBFermentable).order_by(DBFermentable.name).all()
+
+    return templates.TemplateResponse(
+        "recipe_builder.html",
+        {
+            "request": request,
+            "hops": hops,
+            "fermentables": fermentables,  # 👈 this is what the template loops over
+            "form": {},
+            "result": None,
         },
-        "current_page": "recipes",
-    }
-    return templates.TemplateResponse("recipe_builder.html", context)
+    )
+
 
 @app.post("/recipe-builder", response_class=HTMLResponse)
 async def recipe_builder_calculate(

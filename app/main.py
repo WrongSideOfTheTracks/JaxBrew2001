@@ -12,6 +12,8 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Text, Float, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, Session, relationship
 
+import math
+from typing import Optional
 
 
 
@@ -346,6 +348,18 @@ def _parse_float(value: str):
         return float(v)
     except ValueError:
         return None
+
+def _safe_float(value: Optional[str], default: float = 0.0) -> float:
+    """Parse a string into float, return default on error/blank."""
+    if value is None:
+        return default
+    v = value.strip()
+    if not v:
+        return default
+    try:
+        return float(v)
+    except ValueError:
+        return default
 
 
 def seed_fermentables_into_db():
@@ -1016,6 +1030,30 @@ class InventoryItem(BaseModel):
 class ToleranceUpdate(BaseModel):
     toleranceC: float
 
+def tinseth_ibu(weight_g: float, alpha_acid_pct: float,
+                boil_time_min: float, volume_l: float, gravity: float) -> float:
+    """
+    Tinseth IBU formula.
+    weight_g        – hop weight in grams
+    alpha_acid_pct  – e.g. 5.5 for 5.5% AA
+    boil_time_min   – minutes in the boil
+    volume_l        – batch volume in litres
+    gravity         – wort gravity, e.g. 1.050
+    """
+    if volume_l <= 0 or weight_g <= 0 or boil_time_min <= 0 or alpha_acid_pct is None:
+        return 0.0
+
+    aa = alpha_acid_pct / 100.0  # % → fraction
+
+    # Tinseth "bigness" factor
+    bigness = 1.65 * math.pow(0.000125, gravity - 1.0)
+    # Time factor
+    boil_factor = (1 - math.exp(-0.04 * boil_time_min)) / 4.15
+    utilization = bigness * boil_factor
+
+    # mg/L of iso-alpha acids ≈ IBU
+    ibu = utilization * aa * weight_g * 1000.0 / volume_l
+    return max(0.0, ibu)
 
 # -------- Routes: pages --------
 @app.get("/", response_class=HTMLResponse)
@@ -1507,6 +1545,165 @@ async def hops_page(
             "current_page": "hops",
         },
     )
+
+@app.get("/recipe-builder", response_class=HTMLResponse)
+async def recipe_builder_page(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    hops = db.query(DBHop).order_by(DBHop.name).all()
+    context = {
+        "request": request,
+        "hops": hops,
+        "result": None,
+        "form": {
+            "batch_volume_l": "20",
+            "original_gravity": "1.050",
+        },
+        "current_page": "recipes",
+    }
+    return templates.TemplateResponse("recipe_builder.html", context)
+
+@app.post("/recipe-builder", response_class=HTMLResponse)
+async def recipe_builder_calculate(
+    request: Request,
+    batch_volume_l: str = Form(...),
+    original_gravity: str = Form(...),
+
+    # Bittering addition
+    use_bittering: Optional[str] = Form(None),
+    bittering_hop_id: Optional[int] = Form(None),
+    bittering_weight_g: str = Form("0"),
+    bittering_time_min: str = Form("60"),
+
+    # Late addition
+    use_late: Optional[str] = Form(None),
+    late_hop_id: Optional[int] = Form(None),
+    late_weight_g: str = Form("0"),
+    late_time_min: str = Form("15"),
+
+    # Dry hop addition (no IBUs calculated, just listed)
+    use_dry: Optional[str] = Form(None),
+    dry_hop_id: Optional[int] = Form(None),
+    dry_weight_g: str = Form("0"),
+
+    db: Session = Depends(get_db),
+):
+    hops = db.query(DBHop).order_by(DBHop.name).all()
+
+    # Parse the global fields
+    batch_vol = _safe_float(batch_volume_l, default=20.0)
+    og = _safe_float(original_gravity, default=1.050)
+
+    error_msg = None
+    if batch_vol <= 0 or og < 1.0:
+        error_msg = "Please enter a valid batch volume (L) and original gravity (e.g. 1.050)."
+
+    additions = []
+    total_ibu = 0.0
+
+    def find_hop(hop_id: Optional[int]) -> Optional[DBHop]:
+        if not hop_id:
+            return None
+        return (
+            db.query(DBHop)
+            .filter(DBHop.id == hop_id)
+            .first()
+        )
+
+    # ----- Bittering addition -----
+    if not error_msg and use_bittering and bittering_hop_id:
+        hop = find_hop(bittering_hop_id)
+        weight = _safe_float(bittering_weight_g, default=0.0)
+        time_min = _safe_float(bittering_time_min, default=60.0)
+
+        ibu = 0.0
+        if hop and hop.alpha_acid is not None:
+            ibu = tinseth_ibu(weight, hop.alpha_acid, time_min, batch_vol, og)
+            total_ibu += ibu
+
+        additions.append(
+            {
+                "label": "Bittering",
+                "hop_name": hop.name if hop else "Unknown",
+                "alpha_acid": hop.alpha_acid if hop else None,
+                "weight_g": weight,
+                "time_display": f"{int(time_min)} min",
+                "ibu": ibu,
+                "note": "",
+            }
+        )
+
+    # ----- Late addition -----
+    if not error_msg and use_late and late_hop_id:
+        hop = find_hop(late_hop_id)
+        weight = _safe_float(late_weight_g, default=0.0)
+        time_min = _safe_float(late_time_min, default=15.0)
+
+        ibu = 0.0
+        # Late additions still contribute IBUs, just less
+        if hop and hop.alpha_acid is not None and time_min > 0:
+            ibu = tinseth_ibu(weight, hop.alpha_acid, time_min, batch_vol, og)
+            total_ibu += ibu
+
+        additions.append(
+            {
+                "label": "Late",
+                "hop_name": hop.name if hop else "Unknown",
+                "alpha_acid": hop.alpha_acid if hop else None,
+                "weight_g": weight,
+                "time_display": f"{int(time_min)} min",
+                "ibu": ibu,
+                "note": "",
+            }
+        )
+
+    # ----- Dry hop (assume 0 IBUs) -----
+    if not error_msg and use_dry and dry_hop_id:
+        hop = find_hop(dry_hop_id)
+        weight = _safe_float(dry_weight_g, default=0.0)
+
+        additions.append(
+            {
+                "label": "Dry hop",
+                "hop_name": hop.name if hop else "Unknown",
+                "alpha_acid": hop.alpha_acid if hop else None,
+                "weight_g": weight,
+                "time_display": "Dry hop",
+                "ibu": 0.0,
+                "note": "Dry hop – aroma only (IBUs not calculated).",
+            }
+        )
+
+    result = None
+    if error_msg:
+        result = {"error": error_msg}
+    else:
+        result = {
+            "total_ibu": round(total_ibu, 1),
+            "additions": additions,
+        }
+
+    context = {
+        "request": request,
+        "hops": hops,
+        "result": result,
+        "form": {
+            "batch_volume_l": batch_volume_l,
+            "original_gravity": original_gravity,
+            "bittering_hop_id": bittering_hop_id,
+            "bittering_weight_g": bittering_weight_g,
+            "bittering_time_min": bittering_time_min,
+            "late_hop_id": late_hop_id,
+            "late_weight_g": late_weight_g,
+            "late_time_min": late_time_min,
+            "dry_hop_id": dry_hop_id,
+            "dry_weight_g": dry_weight_g,
+        },
+        "current_page": "recipes",
+    }
+
+    return templates.TemplateResponse("recipe_builder.html", context)
 
 
 # -------- JSON API: live data --------

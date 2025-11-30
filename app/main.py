@@ -26,7 +26,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # -------- CONFIG --------
-DUMMY_MODE = True  # set False later when ESP telemetry is live
+DUMMY_MODE = False  # set False later when ESP telemetry is live
 
 # Stubbed alerts (currently disabled)
 def send_email_alert(subject: str, body: str):
@@ -686,7 +686,7 @@ def new_guid() -> str:
 # -------- In-memory brewery layout + live fields --------
 VESSELS = [
     {
-        "id": new_guid(),          # GUID
+        "id": "hlt",          # GUID
         "code": "hlt",             # human short code
         "name": "Hot Liquor Tank",
         "type": "HLT",
@@ -699,7 +699,7 @@ VESSELS = [
         "last_update": datetime.now(),
     },
     {
-        "id": new_guid(),
+        "id": "mash",
         "code": "mash",
         "name": "Mash Tun",
         "type": "Mash tun",
@@ -712,7 +712,7 @@ VESSELS = [
         "last_update": datetime.now(),
     },
     {
-        "id": new_guid(),
+        "id": "kettle",
         "code": "kettle",
         "name": "Kettle",
         "type": "Kettle",
@@ -725,7 +725,7 @@ VESSELS = [
         "last_update": datetime.now(),
     },
     {
-        "id": new_guid(),
+        "id": "fermenter-1",
         "code": "fermenter-1",
         "name": "Fermenter 1",
         "type": "Fermenter",
@@ -738,7 +738,7 @@ VESSELS = [
         "last_update": datetime.now(),
     },
     {
-        "id": new_guid(),
+        "id": "fermenter-2",
         "code": "fermenter-2",
         "name": "Fermenter 2",
         "type": "Fermenter",
@@ -751,7 +751,7 @@ VESSELS = [
         "last_update": datetime.now(),
     },
     {
-        "id": new_guid(),
+        "id": "fermenter-3",
         "code": "fermenter-3",
         "name": "Fermenter 3",
         "type": "Fermenter",
